@@ -1,0 +1,18 @@
+{
+  "description": "Sabas Secure Development completion gate for executable changes.",
+  "hooks": {
+    "Stop": [
+      {
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 ~/.codex/hooks/sabas_secure_stop.py",
+            "commandWindows": "py -3 %USERPROFILE%\\.codex\\hooks\\sabas_secure_stop.py",
+            "timeout": 25,
+            "statusMessage": "Checking Sabas Secure completion gate"
+          }
+        ]
+      }
+    ]
+  }
+}

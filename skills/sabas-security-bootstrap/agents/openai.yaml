@@ -1,0 +1,6 @@
+interface:
+  display_name: "Sabas Security Bootstrap"
+  short_description: "Prepare repos for secure-by-default Codex"
+  default_prompt: "Inspect this repository and bootstrap only the security controls relevant to its real stack, including project security config, threat model and appropriate CI/scanning gates."
+policy:
+  allow_implicit_invocation: false

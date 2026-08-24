@@ -1,0 +1,3 @@
+name: sabas-secure-development
+version: "0.5.4"
+description: Security guardrails for Hermes Agent with catastrophic tool blocking and R2+ completion verification when supported.

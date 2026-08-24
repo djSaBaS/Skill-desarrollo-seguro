@@ -1,0 +1,6 @@
+interface:
+  display_name: "Sabas Secure QA"
+  short_description: "Security gate + threat-aware QA"
+  default_prompt: "Review the current code change with the appropriate risk mode, use the project threat model, coordinate defensive security skills and usuario-torpe-qa when safe, fix blocking findings, retest and give a release verdict."
+policy:
+  allow_implicit_invocation: true

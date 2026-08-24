@@ -1,0 +1,33 @@
+{
+  "schema_version": 1,
+  "source_repository": "https://github.com/mukul975/Anthropic-Cybersecurity-Skills.git",
+  "pinned_commit": "f76261573a539ec40c3d434ecbb9e657d26aa921",
+  "profiles": {
+    "web": [
+      "implementing-devsecops-security-scanning",
+      "implementing-secret-scanning-with-gitleaks",
+      "implementing-semgrep-for-custom-sast-rules",
+      "integrating-dast-with-owasp-zap-in-pipeline",
+      "testing-for-broken-access-control",
+      "testing-for-business-logic-vulnerabilities",
+      "testing-for-xss-vulnerabilities",
+      "testing-for-sensitive-data-exposure",
+      "detecting-dependency-confusion",
+      "securing-github-actions-workflows"
+    ],
+    "api_addon": [
+      "testing-api-security-with-owasp-top-10",
+      "testing-api-for-broken-object-level-authorization",
+      "testing-api-for-mass-assignment-vulnerability",
+      "testing-cors-misconfiguration",
+      "testing-jwt-token-security"
+    ],
+    "devsecops_addon": [
+      "integrating-sast-into-github-actions-pipeline",
+      "implementing-secrets-scanning-in-ci-cd",
+      "implementing-infrastructure-as-code-security-scanning",
+      "scanning-docker-images-with-trivy",
+      "analyzing-sbom-for-supply-chain-vulnerabilities"
+    ]
+  }
+}

@@ -1,0 +1,12 @@
+<!-- SABAS-SECURE-DEVELOPMENT:START -->
+## Secure development gate
+
+- For executable changes, load and follow `sabas-secure-qa` before considering the work complete.
+- Use risk classes R0-R4 and let the review mode escalate automatically.
+- Treat auth, authorization, roles, sessions, admin, sensitive APIs, uploads, SQL, webhooks, payments, secrets, cryptography, multi-tenant behavior, CI/CD and command execution as high-risk surfaces.
+- Never report an unavailable security check as passed; mark it `NOT VERIFIED`.
+- Confirm server-side authorization and resource ownership for sensitive actions.
+- Do not close introduced/affected confirmed or high-confidence Critical/High findings without remediation or explicit documented risk acceptance.
+- Run `usuario-torpe-qa` only in an explicitly authorized local/sandbox/staging environment and keep its audit separate from remediation.
+- For R2+ changes, immediately before final output rerun `security_context.py` and include exactly one `SABAS_SECURITY_VERDICT` line plus the current `SABAS_SECURITY_FINGERPRINT`.
+<!-- SABAS-SECURE-DEVELOPMENT:END -->

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Sabas Threat Model"
+  short_description: "Build project-specific threat models"
+  default_prompt: "Inspect this repository and create or refresh SECURITY-THREAT-MODEL.md with concrete assets, trust boundaries, authorization rules, abuse cases and verification tests."
+policy:
+  allow_implicit_invocation: true

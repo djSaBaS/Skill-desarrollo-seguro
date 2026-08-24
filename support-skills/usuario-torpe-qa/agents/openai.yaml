@@ -1,0 +1,6 @@
+# Define el nombre visible de la skill de pruebas de mal uso.
+name: Usuario Torpe QA
+# Resume su propósito para discovery sin ampliar el alcance destructivo.
+description: Prueba interfaces web reales como un usuario inexperto y torpe, únicamente en entornos locales o de pruebas autorizados.
+# Permite que Codex la seleccione cuando el contexto coincide con su descripción.
+allow_implicit_invocation: true
