@@ -3,488 +3,520 @@ from __future__ import annotations
 
 # Importa hashlib para calcular y validar hashes SHA-256.
 import hashlib
-# Importa json para validar manifiestos y configuraciones JSON.
+# Importa json para validar manifiestos y marcadores.
 import json
-# Importa re para extraer frontmatter mínimo sin dependencias externas.
+# Importa re para validar frontmatter, nombres y hashes.
 import re
 # Importa sys para devolver un código de salida adecuado.
 import sys
 # Importa Path para operar con rutas de forma portable.
 from pathlib import Path
 
-# Define una expresión regular conservadora para localizar el frontmatter YAML inicial.
+# Define una expresión conservadora para localizar frontmatter YAML inicial.
 FRONTMATTER_RE = re.compile(r"\A---\s*\n(?P<body>.*?)\n---\s*\n", re.DOTALL)
-# Define una expresión regular para extraer claves YAML simples obligatorias de una línea.
+# Define las claves simples obligatorias que se extraen del frontmatter.
 KEY_RE = re.compile(r"^(?P<key>name|description):\s*(?P<value>.+?)\s*$", re.MULTILINE)
-# Define el formato esperado para nombres de skills y plugin en kebab-case.
+# Define nombres compatibles en kebab-case.
 KEBAB_RE = re.compile(r"[a-z0-9]+(?:-[a-z0-9]+)*")
-# Define el formato exacto de un hash SHA-256 hexadecimal en minúsculas.
+# Define el formato exacto de SHA-256.
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
-# Define el formato exacto de un commit Git SHA-1 completo en minúsculas.
+# Define el formato exacto de un commit Git SHA-1 completo.
 GIT_SHA_RE = re.compile(r"[0-9a-f]{40}")
+
 
 # Calcula SHA-256 de un fichero sin cargarlo completo en memoria.
 def sha256_file(path: Path) -> str:
-    # Crea el objeto de digest SHA-256.
+    # Crea el acumulador SHA-256.
     digest = hashlib.sha256()
-    # Abre el fichero en modo binario.
+    # Abre el fichero en binario para no alterar saltos de línea ni codificación.
     with path.open("rb") as handle:
-        # Lee bloques de un MiB hasta alcanzar EOF.
+        # Lee por bloques hasta EOF.
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
-            # Incorpora cada bloque al digest.
+            # Incorpora el bloque al digest.
             digest.update(chunk)
-    # Devuelve el hash hexadecimal final.
+    # Devuelve el hexadecimal en minúsculas.
     return digest.hexdigest()
 
-# Valida un SKILL.md y devuelve su nombre junto con los errores detectados.
-def validate_skill(skill_file: Path) -> tuple[str | None, list[str]]:
-    # Inicializa la colección de errores de la skill.
-    errors: list[str] = []
-    # Lee el documento como UTF-8.
-    text = skill_file.read_text(encoding="utf-8")
-    # Busca el frontmatter inicial.
-    match = FRONTMATTER_RE.search(text)
-    # Comprueba que exista frontmatter.
-    if match is None:
-        # Registra el fallo estructural.
-        errors.append(f"{skill_file}: missing YAML frontmatter")
-        # Devuelve sin nombre porque no se puede validar identidad.
-        return None, errors
-    # Extrae las claves simples relevantes.
-    values = {
-        # Conserva la clave y limpia comillas exteriores razonables.
-        item.group("key"): item.group("value").strip().strip('"\'')
-        # Recorre todas las coincidencias dentro del frontmatter.
-        for item in KEY_RE.finditer(match.group("body"))
-    }
-    # Obtiene el nombre declarado.
-    name = values.get("name")
-    # Comprueba la presencia de name.
-    if not name:
-        # Registra ausencia de identidad.
-        errors.append(f"{skill_file}: missing name")
-    # Comprueba la presencia de description.
-    if not values.get("description"):
-        # Registra ausencia de descripción para discovery.
-        errors.append(f"{skill_file}: missing description")
-    # Valida kebab-case cuando existe nombre.
-    if name and KEBAB_RE.fullmatch(name) is None:
-        # Registra un nombre incompatible con el convenio esperado.
-        errors.append(f"{skill_file}: name is not kebab-case: {name}")
-    # Devuelve el nombre y los errores acumulados.
-    return name, errors
 
-# Parsea el manifiesto SHA-256 del bundle.
-def parse_manifest(manifest_file: Path) -> tuple[dict[str, str], list[str]]:
-    # Inicializa errores del manifiesto.
-    errors: list[str] = []
-    # Inicializa el mapa ruta -> hash esperado.
-    entries: dict[str, str] = {}
-    # Recorre cada línea preservando diagnóstico por número.
-    for line_number, raw_line in enumerate(manifest_file.read_text(encoding="utf-8").splitlines(), start=1):
-        # Elimina espacios exteriores.
-        line = raw_line.strip()
-        # Ignora líneas vacías para tolerar una nueva línea final.
-        if not line:
+# Devuelve los ficheros que forman parte del bundle distribuible.
+def collect_bundle_files(root: Path) -> dict[str, Path]:
+    # Inicializa el inventario real.
+    files: dict[str, Path] = {}
+    # Recorre todo el árbol, incluidos dotfiles.
+    for path in root.rglob("*"):
+        # Omite directorios.
+        if not path.is_file():
             # Continúa con la siguiente entrada.
             continue
-        # Divide una sola vez entre hash y ruta.
+        # Calcula la ruta relativa de forma portable.
+        relative = path.relative_to(root)
+        # Excluye metadatos internos de Git porque no forman parte del artefacto distribuible.
+        if relative.parts and relative.parts[0] == ".git":
+            # Continúa sin inventariar .git.
+            continue
+        # Excluye el propio manifiesto para evitar autorreferencia.
+        if relative.as_posix() == "MANIFEST.sha256":
+            # Continúa con el siguiente fichero.
+            continue
+        # Registra el fichero distribuible.
+        files[relative.as_posix()] = path
+    # Devuelve el inventario completo.
+    return files
+
+
+# Valida un SKILL.md y devuelve nombre y errores.
+def validate_skill(skill_file: Path) -> tuple[str | None, list[str]]:
+    # Inicializa errores.
+    errors: list[str] = []
+    # Lee la skill como UTF-8.
+    text = skill_file.read_text(encoding="utf-8")
+    # Localiza el frontmatter.
+    match = FRONTMATTER_RE.search(text)
+    # Exige frontmatter inicial.
+    if match is None:
+        # Registra el fallo.
+        errors.append(f"{skill_file}: missing YAML frontmatter")
+        # No hay identidad fiable.
+        return None, errors
+    # Extrae name y description.
+    values = {
+        item.group("key"): item.group("value").strip().strip("\"'")
+        for item in KEY_RE.finditer(match.group("body"))
+    }
+    # Obtiene el nombre.
+    name = values.get("name")
+    # Exige nombre.
+    if not name:
+        # Registra la ausencia.
+        errors.append(f"{skill_file}: missing name")
+    # Exige descripción.
+    if not values.get("description"):
+        # Registra la ausencia.
+        errors.append(f"{skill_file}: missing description")
+    # Valida kebab-case.
+    if name and KEBAB_RE.fullmatch(name) is None:
+        # Registra formato inválido.
+        errors.append(f"{skill_file}: name is not kebab-case: {name}")
+    # Devuelve resultado.
+    return name, errors
+
+
+# Lee un JSON y exige que su raíz sea un objeto.
+def read_json_object(path: Path, label: str, errors: list[str]) -> dict:
+    # Devuelve vacío si el fichero no existe.
+    if not path.is_file():
+        # Registra la ausencia.
+        errors.append(f"missing {label}")
+        # Continúa con objeto vacío.
+        return {}
+    # Intenta interpretar JSON.
+    try:
+        # Carga el contenido UTF-8.
+        value = json.loads(path.read_text(encoding="utf-8"))
+    # Captura sintaxis JSON inválida.
+    except json.JSONDecodeError as exc:
+        # Registra el diagnóstico.
+        errors.append(f"{label} invalid JSON: {exc}")
+        # Continúa con objeto vacío.
+        return {}
+    # Exige objeto raíz.
+    if not isinstance(value, dict):
+        # Registra tipo inesperado.
+        errors.append(f"{label} root is not an object")
+        # Continúa con objeto vacío.
+        return {}
+    # Devuelve el objeto validado.
+    return value
+
+
+# Parsea MANIFEST.sha256 de forma segura.
+def parse_manifest(manifest_file: Path) -> tuple[dict[str, str], list[str]]:
+    # Inicializa entradas y errores.
+    entries: dict[str, str] = {}
+    # Inicializa errores sintácticos.
+    errors: list[str] = []
+    # Recorre líneas con número.
+    for line_number, raw_line in enumerate(
+        manifest_file.read_text(encoding="utf-8").splitlines(), start=1
+    ):
+        # Limpia espacios exteriores.
+        line = raw_line.strip()
+        # Ignora líneas vacías.
+        if not line:
+            # Continúa.
+            continue
+        # Divide hash y ruta una sola vez.
         parts = line.split(maxsplit=1)
-        # Comprueba que existan ambos componentes.
+        # Exige ambos componentes.
         if len(parts) != 2:
             # Registra sintaxis inválida.
             errors.append(f"MANIFEST.sha256:{line_number}: invalid line")
-            # Continúa acumulando errores.
+            # Continúa.
             continue
-        # Extrae el hash esperado y la ruta relativa.
+        # Extrae componentes.
         expected_hash, relative_path = parts
-        # Elimina un asterisco opcional de formatos sha256sum tradicionales.
+        # Tolera asterisco de sha256sum.
         relative_path = relative_path.lstrip("*")
-        # Valida la longitud y caracteres del hash.
+        # Valida el hash.
         if SHA256_RE.fullmatch(expected_hash) is None:
-            # Registra hash mal formado.
+            # Registra hash inválido.
             errors.append(f"MANIFEST.sha256:{line_number}: invalid SHA-256")
-            # Continúa sin añadir la entrada.
+            # Continúa.
             continue
-        # Impide rutas absolutas o traversal en el inventario.
+        # Normaliza la ruta.
         normalized = Path(relative_path)
-        # Comprueba que la ruta se mantenga relativa y no contenga .. .
+        # Impide rutas absolutas y traversal.
         if normalized.is_absolute() or ".." in normalized.parts:
-            # Registra una ruta insegura.
+            # Registra ruta insegura.
             errors.append(f"MANIFEST.sha256:{line_number}: unsafe path {relative_path}")
-            # Continúa sin añadirla.
+            # Continúa.
             continue
-        # Detecta duplicados que podrían ocultar una discrepancia.
+        # Impide incluir .git dentro del manifiesto distribuible.
+        if normalized.parts and normalized.parts[0] == ".git":
+            # Registra metadatos internos no distribuibles.
+            errors.append(f"MANIFEST.sha256:{line_number}: .git metadata is not distributable")
+            # Continúa.
+            continue
+        # Detecta duplicados.
         if relative_path in entries:
-            # Registra la duplicación.
+            # Registra duplicado.
             errors.append(f"MANIFEST.sha256:{line_number}: duplicate path {relative_path}")
-            # Continúa sin sobrescribir el valor anterior.
+            # Continúa.
             continue
-        # Guarda la entrada validada.
+        # Guarda la entrada.
         entries[relative_path] = expected_hash
-    # Devuelve inventario y errores.
+    # Devuelve entradas y errores.
     return entries, errors
 
-# Valida sintaxis Python sin importar ni ejecutar el fichero analizado.
-def validate_python_syntax(path: Path) -> list[str]:
-    # Inicializa la colección de errores de sintaxis.
-    errors: list[str] = []
-    # Lee el código como UTF-8 para usar el mismo contenido que se distribuirá.
-    source = path.read_text(encoding="utf-8")
-    # Intenta compilar únicamente a un objeto de código en memoria.
-    try:
-        # Usa compile para detectar errores sintácticos sin crear __pycache__ ni ejecutar imports.
-        compile(source, str(path), "exec")
-    # Captura exclusivamente errores de sintaxis del código empaquetado.
-    except SyntaxError as exc:
-        # Registra ruta, línea y mensaje de forma accionable.
-        errors.append(f"{path}: Python syntax error at line {exc.lineno}: {exc.msg}")
-    # Devuelve los problemas detectados.
-    return errors
 
-# Valida que MANIFEST.sha256 cubra exactamente el bundle actual.
+# Valida que el manifiesto cubra exactamente el bundle distribuible.
 def validate_manifest(root: Path) -> list[str]:
-    # Inicializa errores de integridad.
+    # Inicializa errores.
     errors: list[str] = []
-    # Define la ruta del manifiesto.
+    # Resuelve el manifiesto.
     manifest_file = root / "MANIFEST.sha256"
-    # Comprueba que exista el fichero de integridad.
+    # Exige el manifiesto.
     if not manifest_file.is_file():
-        # Devuelve un error único y accionable.
+        # Devuelve un único error accionable.
         return ["missing MANIFEST.sha256"]
-    # Parsea el contenido declarado.
+    # Parsea el inventario declarado.
     entries, parse_errors = parse_manifest(manifest_file)
-    # Incorpora errores sintácticos encontrados.
+    # Acumula errores de parseo.
     errors.extend(parse_errors)
-    # Construye el conjunto real de ficheros excepto el propio manifiesto.
-    actual_files = {
-        # Normaliza separadores a / para que el manifiesto sea portable.
-        path.relative_to(root).as_posix(): path
-        # Recorre todo el árbol del bundle.
-        for path in root.rglob("*")
-        # Conserva únicamente ficheros regulares distintos del manifiesto.
-        if path.is_file() and path.name != "MANIFEST.sha256"
-    }
+    # Obtiene el inventario real excluyendo .git.
+    actual_files = collect_bundle_files(root)
     # Detecta ficheros no inventariados.
     for relative_path in sorted(set(actual_files) - set(entries)):
         # Registra el fichero extra.
         errors.append(f"MANIFEST.sha256 missing file: {relative_path}")
-    # Detecta entradas cuyo fichero ya no existe.
+    # Detecta entradas obsoletas.
     for relative_path in sorted(set(entries) - set(actual_files)):
-        # Registra la entrada obsoleta.
+        # Registra la entrada sin fichero.
         errors.append(f"MANIFEST.sha256 references missing file: {relative_path}")
-    # Verifica cada hash cuando el fichero existe en ambos conjuntos.
+    # Compara hashes comunes.
     for relative_path in sorted(set(entries) & set(actual_files)):
-        # Calcula el hash real.
+        # Calcula hash real.
         actual_hash = sha256_file(actual_files[relative_path])
-        # Compara contra el valor declarado.
+        # Registra discrepancias.
         if actual_hash != entries[relative_path]:
-            # Registra cualquier alteración o manifiesto desactualizado.
+            # Informa del fichero afectado.
             errors.append(f"MANIFEST.sha256 hash mismatch: {relative_path}")
-    # Devuelve todos los errores de integridad.
+    # Devuelve todos los errores.
     return errors
+
+
+# Valida sintaxis Python sin importar ni ejecutar el fichero.
+def validate_python_syntax(path: Path) -> list[str]:
+    # Inicializa errores.
+    errors: list[str] = []
+    # Lee el código.
+    source = path.read_text(encoding="utf-8")
+    # Intenta compilar en memoria.
+    try:
+        # Compila sin ejecutar imports.
+        compile(source, str(path), "exec")
+    # Captura únicamente errores sintácticos.
+    except SyntaxError as exc:
+        # Registra línea y mensaje.
+        errors.append(f"{path}: Python syntax error at line {exc.lineno}: {exc.msg}")
+    # Devuelve errores.
+    return errors
+
 
 # Ejecuta la validación completa del bundle.
 def main() -> int:
-    # Resuelve la raíz del paquete a partir de la ubicación estable de este script.
+    # Resuelve la raíz estable del bundle.
     root = Path(__file__).resolve().parents[3]
-    # Inicializa la colección global de errores.
+    # Inicializa errores globales.
     errors: list[str] = []
-    # Define la ruta del manifiesto del plugin.
-    plugin_file = root / ".codex-plugin" / "plugin.json"
-    # Comprueba que el manifiesto exista.
-    if not plugin_file.is_file():
-        # Registra la ausencia.
-        errors.append("missing .codex-plugin/plugin.json")
+
+    # Valida el manifiesto del plugin Codex.
+    plugin = read_json_object(root / ".codex-plugin" / "plugin.json", ".codex-plugin/plugin.json", errors)
+    # Exige las claves mínimas.
+    for required in ("name", "version", "description", "skills"):
+        # Comprueba cada clave.
+        if not plugin.get(required):
+            # Registra la ausencia.
+            errors.append(f"plugin.json missing {required}")
+    # Valida el nombre del plugin.
+    plugin_name = str(plugin.get("name", ""))
+    # Exige kebab-case cuando existe.
+    if plugin_name and KEBAB_RE.fullmatch(plugin_name) is None:
+        # Registra formato inesperado.
+        errors.append(f"plugin.json name is not kebab-case: {plugin_name}")
+    # Valida la ruta declarada de skills.
+    skills_entry = str(plugin.get("skills", ""))
+    # Procesa solo cuando existe.
+    if skills_entry:
+        # Resuelve la ruta.
+        declared_skills = (root / skills_entry).resolve()
+        # Impide escapar de la raíz.
+        if root.resolve() not in declared_skills.parents and declared_skills != root.resolve():
+            # Registra escape.
+            errors.append("plugin.json skills path escapes plugin root")
+        # Exige directorio existente.
+        if not declared_skills.is_dir():
+            # Registra ruta rota.
+            errors.append(f"plugin.json skills path missing: {skills_entry}")
+
+    # Valida el lockfile de skills externas.
+    external_lock = read_json_object(root / "EXTERNAL-SKILLS.lock.json", "EXTERNAL-SKILLS.lock.json", errors)
+    # Obtiene commit fijado.
+    pinned_commit = str(external_lock.get("pinned_commit", ""))
+    # Exige SHA Git completo.
+    if GIT_SHA_RE.fullmatch(pinned_commit) is None:
+        # Registra pin inválido.
+        errors.append("EXTERNAL-SKILLS.lock.json has invalid pinned_commit")
+    # Obtiene origen.
+    source_repository = str(external_lock.get("source_repository", ""))
+    # Exige GitHub HTTPS.
+    if not source_repository.startswith("https://github.com/"):
+        # Registra origen inesperado.
+        errors.append("EXTERNAL-SKILLS.lock.json has unexpected source_repository")
+    # Obtiene perfiles.
+    profiles = external_lock.get("profiles")
+    # Exige objeto de perfiles.
+    if not isinstance(profiles, dict):
+        # Registra estructura inválida.
+        errors.append("EXTERNAL-SKILLS.lock.json missing profiles object")
     else:
-        # Intenta parsear el JSON del plugin.
-        try:
-            # Carga el manifiesto en memoria.
-            plugin = json.loads(plugin_file.read_text(encoding="utf-8"))
-        # Captura sintaxis JSON inválida.
-        except json.JSONDecodeError as exc:
-            # Registra el error con su detalle.
-            errors.append(f"plugin.json invalid JSON: {exc}")
-            # Usa un objeto vacío para continuar otras comprobaciones.
-            plugin = {}
-        # Valida las claves mínimas documentadas del bundle.
-        for required in ("name", "version", "description", "skills"):
-            # Comprueba cada campo obligatorio.
-            if not plugin.get(required):
-                # Registra la ausencia concreta.
-                errors.append(f"plugin.json missing {required}")
-        # Obtiene el nombre del plugin.
-        plugin_name = str(plugin.get("name", ""))
-        # Valida su formato cuando existe.
-        if plugin_name and KEBAB_RE.fullmatch(plugin_name) is None:
-            # Registra formato inesperado.
-            errors.append(f"plugin.json name is not kebab-case: {plugin_name}")
-        # Obtiene la ruta declarada de skills.
-        skills_entry = str(plugin.get("skills", ""))
-        # Resuelve la ruta declarada solo cuando existe.
-        if skills_entry:
-            # Normaliza contra la raíz del plugin.
-            declared_skills = (root / skills_entry).resolve()
-            # Comprueba que se mantenga dentro del paquete y sea directorio.
-            if root.resolve() not in declared_skills.parents and declared_skills != root.resolve():
-                # Registra un escape del plugin root.
-                errors.append("plugin.json skills path escapes plugin root")
-            # Comprueba que el directorio declarado exista.
-            if not declared_skills.is_dir():
-                # Registra una ruta rota.
-                errors.append(f"plugin.json skills path missing: {skills_entry}")
-    # Define la ruta del lockfile externo.
-    external_lock_file = root / "EXTERNAL-SKILLS.lock.json"
-    # Comprueba que exista la fuente de verdad supply-chain.
-    if not external_lock_file.is_file():
-        # Registra la ausencia.
-        errors.append("missing EXTERNAL-SKILLS.lock.json")
-    else:
-        # Intenta cargar el lockfile.
-        try:
-            # Parsea la configuración JSON.
-            external_lock = json.loads(external_lock_file.read_text(encoding="utf-8"))
-        # Captura sintaxis inválida.
-        except json.JSONDecodeError as exc:
-            # Registra el fallo.
-            errors.append(f"EXTERNAL-SKILLS.lock.json invalid JSON: {exc}")
-            # Continúa con un objeto vacío.
-            external_lock = {}
-        # Obtiene el commit fijado.
-        pinned_commit = str(external_lock.get("pinned_commit", ""))
-        # Exige un SHA completo.
-        if GIT_SHA_RE.fullmatch(pinned_commit) is None:
-            # Registra pin ambiguo o inválido.
-            errors.append("EXTERNAL-SKILLS.lock.json has invalid pinned_commit")
-        # Obtiene el repositorio de origen.
-        source_repository = str(external_lock.get("source_repository", ""))
-        # Exige HTTPS GitHub para este bundle concreto.
-        if not source_repository.startswith("https://github.com/"):
-            # Registra una fuente inesperada.
-            errors.append("EXTERNAL-SKILLS.lock.json has unexpected source_repository")
-        # Obtiene el mapa de perfiles.
-        profiles = external_lock.get("profiles")
-        # Comprueba su tipo.
-        if not isinstance(profiles, dict):
-            # Registra estructura inválida.
-            errors.append("EXTERNAL-SKILLS.lock.json missing profiles object")
-        else:
-            # Define los perfiles que el instalador espera poder resolver.
-            required_profiles = {"web", "api_addon", "devsecops_addon"}
-            # Comprueba que no falte ninguno.
-            for missing_profile in sorted(required_profiles - set(profiles)):
-                # Registra el perfil ausente.
-                errors.append(f"EXTERNAL-SKILLS.lock.json missing profile: {missing_profile}")
-            # Recorre cada perfil declarado.
-            for profile_name, profile_skills in profiles.items():
-                # Comprueba que sea una lista no vacía.
-                if not isinstance(profile_skills, list) or not profile_skills:
-                    # Registra el perfil mal formado.
-                    errors.append(f"external profile is empty or invalid: {profile_name}")
-                    # Continúa para acumular más problemas.
-                    continue
-                # Convierte elementos a texto.
-                normalized_skills = [str(item) for item in profile_skills]
-                # Detecta duplicados internos.
-                if len(normalized_skills) != len(set(normalized_skills)):
-                    # Registra el perfil afectado.
-                    errors.append(f"external profile contains duplicates: {profile_name}")
-                # Recorre cada nombre permitido.
-                for external_skill_name in normalized_skills:
-                    # Exige kebab-case para impedir rutas arbitrarias.
-                    if KEBAB_RE.fullmatch(external_skill_name) is None:
-                        # Registra el nombre inseguro o inesperado.
-                        errors.append(f"invalid external skill name in {profile_name}: {external_skill_name}")
-    # Localiza todos los SKILL.md propios empaquetados.
+        # Define perfiles requeridos.
+        required_profiles = {"web", "api_addon", "devsecops_addon"}
+        # Registra perfiles ausentes.
+        for missing_profile in sorted(required_profiles - set(profiles)):
+            # Informa el nombre.
+            errors.append(f"EXTERNAL-SKILLS.lock.json missing profile: {missing_profile}")
+        # Recorre perfiles.
+        for profile_name, profile_skills in profiles.items():
+            # Exige lista no vacía.
+            if not isinstance(profile_skills, list) or not profile_skills:
+                # Registra perfil inválido.
+                errors.append(f"external profile is empty or invalid: {profile_name}")
+                # Continúa.
+                continue
+            # Normaliza nombres.
+            normalized_skills = [str(item) for item in profile_skills]
+            # Detecta duplicados.
+            if len(normalized_skills) != len(set(normalized_skills)):
+                # Registra duplicación.
+                errors.append(f"external profile contains duplicates: {profile_name}")
+            # Valida cada nombre.
+            for external_skill_name in normalized_skills:
+                # Exige kebab-case.
+                if KEBAB_RE.fullmatch(external_skill_name) is None:
+                    # Registra nombre inválido.
+                    errors.append(f"invalid external skill name in {profile_name}: {external_skill_name}")
+
+    # Localiza todas las skills propias.
     skill_files = sorted((root / "skills").glob("*/SKILL.md"))
-    # Comprueba que exista al menos una skill.
+    # Exige al menos una skill.
     if not skill_files:
-        # Registra que el plugin estaría vacío.
+        # Registra bundle vacío.
         errors.append("no skills found")
-    # Inicializa nombres vistos para detectar duplicados.
+    # Inicializa nombres vistos.
     names: set[str] = set()
-    # Recorre cada skill propia.
+    # Recorre skills.
     for skill_file in skill_files:
-        # Valida estructura y frontmatter.
+        # Valida frontmatter.
         name, skill_errors = validate_skill(skill_file)
-        # Agrega sus errores.
+        # Acumula errores.
         errors.extend(skill_errors)
-        # Continúa validación de identidad únicamente con nombre.
+        # Comprueba identidad.
         if name:
-            # Detecta nombres duplicados.
+            # Detecta duplicados.
             if name in names:
-                # Registra el duplicado.
+                # Registra duplicado.
                 errors.append(f"duplicate skill name: {name}")
-            # Registra el nombre como visto.
+            # Conserva nombre.
             names.add(name)
-            # Comprueba coherencia carpeta/name.
+            # Exige coherencia carpeta/nombre.
             if skill_file.parent.name != name:
                 # Registra incoherencia.
                 errors.append(f"folder/name mismatch: {skill_file.parent.name} != {name}")
-        # Define la metadata opcional de UI/activación.
-        openai_yaml = skill_file.parent / "agents" / "openai.yaml"
-        # Comprueba que las skills propias incluyan el fichero esperado por este bundle.
-        if not openai_yaml.is_file():
-            # Registra ausencia de metadata.
+        # Exige metadata OpenAI para cada skill propia.
+        if not (skill_file.parent / "agents" / "openai.yaml").is_file():
+            # Registra metadata ausente.
             errors.append(f"missing agents/openai.yaml for {skill_file.parent.name}")
-    # Define la copia de soporte de usuario-torpe-qa que permite una instalación dinámica autosuficiente.
-    support_skill_file = root / "support-skills" / "usuario-torpe-qa" / "SKILL.md"
-    # Comprueba que exista la skill de soporte.
+
+    # Valida la skill de soporte usuario-torpe-qa.
+    support_root = root / "support-skills" / "usuario-torpe-qa"
+    # Define su SKILL.md.
+    support_skill_file = support_root / "SKILL.md"
+    # Exige la skill.
     if not support_skill_file.is_file():
-        # Registra que la integración dinámica quedaría incompleta.
+        # Registra ausencia.
         errors.append("missing bundled support skill: usuario-torpe-qa")
     else:
-        # Valida su frontmatter con las mismas reglas básicas que una skill propia.
+        # Valida frontmatter.
         support_name, support_errors = validate_skill(support_skill_file)
-        # Agrega cualquier problema estructural.
+        # Acumula errores.
         errors.extend(support_errors)
-        # Exige el nombre exacto para que el orquestador pueda descubrirla.
+        # Exige identidad exacta.
         if support_name != "usuario-torpe-qa":
-            # Registra una identidad inesperada.
+            # Registra identidad inesperada.
             errors.append(f"bundled support skill name mismatch: {support_name}")
-        # Define los auxiliares referenciados directamente por el SKILL.md original.
+        # Define auxiliares requeridos.
         support_required_files = (
-            # Exige perfiles humanos.
             "references/perfiles.md",
-            # Exige catálogo de mal uso.
             "references/catalogo-pruebas.md",
-            # Exige referencia WordPress.
             "references/wordpress.md",
-            # Exige plantilla de informe.
             "templates/informe.md",
-            # Exige tabla de incidencias.
             "templates/tabla-incidencias.md",
-            # Exige metadata de discovery.
             "agents/openai.yaml",
-            # Exige marcador que permite desinstalar solo copias realmente instaladas por el bundle.
             ".sabas-bundled-support.json",
         )
-        # Recorre todos los auxiliares de soporte.
-        for support_relative_path in support_required_files:
-            # Comprueba que el fichero exista dentro de la skill de soporte.
-            if not (support_skill_file.parent / support_relative_path).is_file():
-                # Registra la ruta exacta que falta.
-                errors.append(f"missing usuario-torpe-qa support file: {support_relative_path}")
-        # Define el marcador que autoriza una desinstalación segura de la copia completa creada por el bundle.
-        support_marker_file = support_skill_file.parent / ".sabas-bundled-support.json"
-        # Intenta validar su estructura únicamente cuando existe.
-        if support_marker_file.is_file():
-            # Carga el marcador de procedencia como JSON.
-            try:
-                # Parsea el contenido sin ejecutar ninguna lógica externa.
-                support_marker = json.loads(support_marker_file.read_text(encoding="utf-8"))
-            # Captura un JSON corrupto.
-            except json.JSONDecodeError as exc:
-                # Registra el fallo porque impediría demostrar la procedencia al desinstalar.
-                errors.append(f"usuario-torpe-qa support marker invalid JSON: {exc}")
-                # Continúa con un objeto vacío para acumular más errores.
-                support_marker = {}
-            # Comprueba que el marcador pertenezca a este bundle.
-            if support_marker.get("bundle") != "sabas-secure-development":
-                # Registra una procedencia inesperada.
-                errors.append("usuario-torpe-qa support marker has unexpected bundle")
-            # Comprueba que identifique la skill exacta.
-            if support_marker.get("support_skill") != "usuario-torpe-qa":
-                # Registra una identidad inconsistente.
-                errors.append("usuario-torpe-qa support marker has unexpected skill")
-    # Define el hook de seguridad de Codex incluido.
+        # Exige cada auxiliar.
+        for relative_path in support_required_files:
+            # Comprueba el fichero.
+            if not (support_root / relative_path).is_file():
+                # Registra la ruta.
+                errors.append(f"missing usuario-torpe-qa support file: {relative_path}")
+        # Valida el marcador de propiedad.
+        support_marker = read_json_object(
+            support_root / ".sabas-bundled-support.json",
+            "usuario-torpe-qa support marker",
+            errors,
+        )
+        # Exige bundle exacto.
+        if support_marker and support_marker.get("bundle") != "sabas-secure-development":
+            # Registra procedencia inesperada.
+            errors.append("usuario-torpe-qa support marker has unexpected bundle")
+        # Exige skill exacta.
+        if support_marker and support_marker.get("support_skill") != "usuario-torpe-qa":
+            # Registra identidad inesperada.
+            errors.append("usuario-torpe-qa support marker has unexpected skill")
+
+    # Valida el hook de Codex.
     hook_script = root / "scripts" / "SabasSecureStopHook.py"
-    # Define el plugin nativo de seguridad de Hermes incluido.
-    hermes_plugin_script = root / "hermes-plugin" / "sabas-secure-development" / "__init__.py"
-    # Define el manifiesto del plugin Hermes.
-    hermes_plugin_manifest = root / "hermes-plugin" / "sabas-secure-development" / "plugin.yaml"
-    # Exige el código del plugin Hermes porque V0.5.4 ofrece instalación nativa en ese agente.
-    if not hermes_plugin_script.is_file():
-        # Registra ausencia del guardrail Hermes.
-        errors.append("missing Hermes plugin __init__.py")
-    # Exige el manifiesto del plugin Hermes.
-    if not hermes_plugin_manifest.is_file():
-        # Registra ausencia del manifiesto.
-        errors.append("missing Hermes plugin plugin.yaml")
-    # Exige su presencia porque la documentación lo ofrece como guardrail instalable.
+    # Exige el hook.
     if not hook_script.is_file():
-        # Registra ausencia del script.
+        # Registra ausencia.
         errors.append("missing scripts/SabasSecureStopHook.py")
-    # Define la plantilla JSON de hooks.
-    hook_template = root / "templates" / "hooks.sabas-secure.json"
-    # Comprueba que exista.
-    if not hook_template.is_file():
-        # Registra ausencia de plantilla.
-        errors.append("missing templates/hooks.sabas-secure.json")
-    else:
-        # Intenta parsear su JSON.
-        try:
-            # Carga la plantilla.
-            hook_config = json.loads(hook_template.read_text(encoding="utf-8"))
-        # Captura sintaxis inválida.
-        except json.JSONDecodeError as exc:
-            # Registra fallo concreto.
-            errors.append(f"hooks.sabas-secure.json invalid JSON: {exc}")
-            # Continúa con objeto vacío.
-            hook_config = {}
-        # Obtiene la lista Stop de manera defensiva.
-        stop_hooks = hook_config.get("hooks", {}).get("Stop", []) if isinstance(hook_config.get("hooks"), dict) else []
-        # Exige al menos un handler Stop.
-        if not stop_hooks:
-            # Registra plantilla sin guardrail real.
-            errors.append("hooks.sabas-secure.json missing Stop hook")
-    # Define los scripts Python que deben ser sintácticamente válidos antes de distribuirse.
-    python_scripts = (
-        # Incluye el clasificador determinista.
-        root / "skills" / "sabas-secure-qa" / "scripts" / "security_context.py",
-        # Incluye el validador que está ejecutando esta comprobación.
-        root / "skills" / "sabas-secure-qa" / "scripts" / "validate_bundle.py",
-        # Incluye el hook Stop opcional de Codex.
-        hook_script,
-        # Incluye el plugin nativo de Hermes.
-        hermes_plugin_script,
-        # Incluye la batería de regresión distribuida.
-        root / "tests" / "test_sabas_secure_dev.py",
+
+    # Valida el plugin Hermes y su marcador de propiedad.
+    hermes_root = root / "hermes-plugin" / "sabas-secure-development"
+    # Define el código del plugin.
+    hermes_plugin_script = hermes_root / "__init__.py"
+    # Define el manifiesto del plugin.
+    hermes_plugin_manifest = hermes_root / "plugin.yaml"
+    # Exige código.
+    if not hermes_plugin_script.is_file():
+        # Registra ausencia.
+        errors.append("missing Hermes plugin __init__.py")
+    # Exige manifiesto.
+    if not hermes_plugin_manifest.is_file():
+        # Registra ausencia.
+        errors.append("missing Hermes plugin plugin.yaml")
+    # Valida marcador de propiedad.
+    hermes_marker = read_json_object(
+        hermes_root / ".sabas-managed-plugin.json",
+        "Hermes managed plugin marker",
+        errors,
     )
-    # Recorre cada script sin crear bytecode en disco.
-    for python_script in python_scripts:
-        # Comprueba que exista antes de leerlo.
-        if python_script.is_file():
-            # Agrega cualquier error de sintaxis detectado por compile.
-            errors.extend(validate_python_syntax(python_script))
-        else:
-            # Registra ausencia con una ruta relativa clara.
-            errors.append(f"missing Python script: {python_script.relative_to(root)}")
-    # Comprueba referencias críticas nuevas del orquestador.
-    for relative_reference in (
-        # Exige el routing de la capa oficial.
+    # Exige valores exactos cuando existe.
+    if hermes_marker:
+        # Comprueba gestor.
+        if hermes_marker.get("managed_by") != "sabas-secure-development":
+            # Registra gestor inesperado.
+            errors.append("Hermes managed plugin marker has unexpected managed_by")
+        # Comprueba componente.
+        if hermes_marker.get("component") != "hermes-plugin":
+            # Registra componente inesperado.
+            errors.append("Hermes managed plugin marker has unexpected component")
+        # Comprueba nombre.
+        if hermes_marker.get("plugin_name") != "sabas-secure-development":
+            # Registra nombre inesperado.
+            errors.append("Hermes managed plugin marker has unexpected plugin_name")
+
+    # Valida la plantilla de hooks.
+    hook_template = root / "templates" / "hooks.sabas-secure.json"
+    # Lee el JSON.
+    hook_config = read_json_object(hook_template, "templates/hooks.sabas-secure.json", errors)
+    # Obtiene hooks.
+    hooks_section = hook_config.get("hooks") if isinstance(hook_config, dict) else None
+    # Obtiene Stop defensivamente.
+    stop_hooks = hooks_section.get("Stop", []) if isinstance(hooks_section, dict) else []
+    # Exige al menos un Stop hook.
+    if not stop_hooks:
+        # Registra plantilla incompleta.
+        errors.append("hooks.sabas-secure.json missing Stop hook")
+
+    # Exige referencias críticas.
+    required_references = (
         "skills/sabas-secure-qa/references/codex-security-integration.md",
-        # Exige la integración de usuario torpe.
         "skills/sabas-secure-qa/references/usuario-torpe-integration.md",
-        # Exige las reglas de bloqueo.
         "skills/sabas-secure-qa/references/security-gates.md",
-        # Exige la referencia de integración nativa con Hermes añadida en V0.5.4.
         "skills/sabas-secure-qa/references/hermes-security-integration.md",
-    ):
+    )
+    # Recorre referencias.
+    for relative_reference in required_references:
         # Comprueba cada fichero.
         if not (root / relative_reference).is_file():
-            # Registra la referencia rota.
+            # Registra la ausencia.
             errors.append(f"missing required reference: {relative_reference}")
-    # Valida la integridad exacta del bundle mediante MANIFEST.sha256.
+
+    # Valida sintaxis Python de componentes distribuidos.
+    python_scripts = (
+        root / "skills" / "sabas-secure-qa" / "scripts" / "security_context.py",
+        root / "skills" / "sabas-secure-qa" / "scripts" / "validate_bundle.py",
+        hook_script,
+        hermes_plugin_script,
+        root / "tests" / "test_sabas_secure_dev.py",
+        root / "tests" / "test_portable_setup.py",
+    )
+    # Recorre scripts.
+    for python_script in python_scripts:
+        # Valida cuando existe.
+        if python_script.is_file():
+            # Acumula errores sintácticos.
+            errors.extend(validate_python_syntax(python_script))
+        else:
+            # Registra ausencia.
+            errors.append(f"missing Python script: {python_script.relative_to(root)}")
+
+    # Valida integridad exacta del artefacto distribuible.
     errors.extend(validate_manifest(root))
-    # Emite errores y falla cuando exista cualquier problema.
+
+    # Falla cuando existe cualquier error.
     if errors:
-        # Recorre errores en el orden detectado.
+        # Emite cada error de forma independiente.
         for error in errors:
-            # Imprime cada uno con prefijo inequívoco.
+            # Imprime diagnóstico.
             print(f"ERROR: {error}")
-        # Devuelve código no cero.
+        # Devuelve código de fallo.
         return 1
-    # Construye el inventario real para el resumen.
-    package_files = sorted(path for path in root.rglob("*") if path.is_file() and path.name != "MANIFEST.sha256")
-    # Imprime resumen de éxito.
+
+    # Construye inventario final excluyendo .git.
+    package_files = collect_bundle_files(root)
+    # Emite resumen reproducible.
     print(f"OK: bundle valid; skills={len(skill_files)} files={len(package_files)} manifest=verified")
-    # Imprime hashes de las skills principales para auditoría rápida.
+    # Emite hashes de las skills principales.
     for skill_file in skill_files:
-        # Emite ruta relativa y hash calculado.
+        # Imprime ruta y SHA-256.
         print(f"SHA256 {skill_file.relative_to(root)} {sha256_file(skill_file)}")
     # Devuelve éxito.
     return 0
+
 
 # Ejecuta el validador únicamente como programa principal.
 if __name__ == "__main__":
