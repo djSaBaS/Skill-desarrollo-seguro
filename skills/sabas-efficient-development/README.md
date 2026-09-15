@@ -2,114 +2,96 @@
 
 Skill portable para reducir trabajo innecesario de un agente de programación sin sacrificar corrección, pruebas ni seguridad.
 
-Su objetivo no es hacer que el modelo "piense menos", sino evitar consumo inútil: exploraciones completas del repositorio, relecturas, pruebas globales prematuras, escaneos duplicados, subagentes innecesarios, trabajo en segundo plano y refactors fuera de alcance.
+La versión **0.2.0** añade un **Scope Compiler**: una petición amplia se convierte primero en un lote pequeño y verificable antes de abrir archivos, lanzar herramientas o iniciar agentes auxiliares.
 
-La versión **0.2.0** añade un **Scope Compiler**: cuando el usuario da una instrucción demasiado amplia, la skill la convierte internamente en un primer lote pequeño y verificable antes de empezar a usar herramientas.
+Ejemplo:
 
-Por ejemplo:
+`"corrige los errores de Sonar" -> reutilizar hallazgos existentes -> 1 causa raíz o máximo 3 incidencias relacionadas -> máximo 5 archivos de producción -> pruebas dirigidas -> informar -> STOP`
 
-`"corrige los errores de Sonar" -> usar hallazgos existentes -> 1 causa raíz o máximo 3 incidencias relacionadas -> máximo 5 archivos de producción -> pruebas dirigidas -> informar -> STOP`
-
-De esta forma un prompt amplio no se interpreta automáticamente como permiso para volver a auditar todo el repositorio.
+El objetivo no es hacer que el modelo "piense menos", sino evitar consumo inútil: exploraciones completas, relecturas, scans duplicados, suites globales prematuras, subagentes innecesarios, procesos en segundo plano y refactors fuera de alcance.
 
 ## Flujo
 
 `evidencia conocida -> acotar prompt -> búsqueda dirigida -> working set pequeño -> cambio mínimo -> prueba dirigida -> ampliar solo si hace falta -> parar`
 
-Incluye tres modos:
+Modos:
 
-- `ECO`: cambios locales y bien acotados.
-- `STANDARD`: bugs o funcionalidades que afectan a varios componentes cercanos.
-- `DEEP`: arquitectura, problemas sistémicos, migraciones, releases o auditorías completas solicitadas explícitamente.
+- `ECO`: cambio local, error concreto, archivo/símbolo conocido.
+- `STANDARD`: varios componentes cercanos o dependencia local incierta.
+- `DEEP`: arquitectura, problema sistémico, migración, release o auditoría completa realmente solicitada.
 
-`DEEP` no se activa simplemente porque el repositorio sea grande, exista un hallazgo de seguridad o haya disponible un scanner potente.
+`DEEP` no se activa solo porque el repositorio sea grande, exista un hallazgo de seguridad o haya disponible un scanner potente.
 
-## Qué evita por defecto
+## Límites por defecto para peticiones abiertas
 
-Para una corrección local la skill intenta evitar:
+Salvo que el usuario pida trabajo autónomo amplio:
 
-- escaneos completos o `deep scan` no solicitados;
-- repetir SonarQube, CI, lint o auditorías que ya aportaron evidencia suficiente;
-- agentes/subagentes paralelos innecesarios;
-- procesos largos en segundo plano;
-- suites completas antes de una prueba dirigida;
-- relectura de archivos ya comprendidos;
-- continuar automáticamente con el siguiente lote después de terminar uno.
+- una causa raíz o hasta tres hallazgos estrechamente relacionados;
+- hasta cinco archivos de producción salvo necesidad de corrección;
+- pruebas directamente relacionadas;
+- sin `deep scan`, auditoría global, agentes paralelos o procesos en segundo plano por defecto;
+- detenerse al terminar el lote e informar del siguiente recomendado.
 
-Si ampliar el alcance es realmente necesario para resolver correctamente el problema, la skill debe explicarlo antes de hacerlo salvo que el usuario ya haya pedido trabajo autónomo amplio.
+Los límites son presupuestos de trabajo, no excusas para entregar una corrección incompleta. Si la solución correcta exige ampliar el alcance, el agente debe justificarlo.
 
-## Compatibilidad con desarrollo seguro
+## Compatibilidad con Sabas Secure QA
 
-Puede instalarse junto a `sabas-secure-qa`.
+`sabas-efficient-development` no sustituye ni rebaja los gates de `sabas-secure-qa`.
 
-No sustituye ni rebaja sus controles. Si la skill de seguridad exige una revisión, test o gate determinado, se ejecuta. `sabas-efficient-development` únicamente evita duplicar lecturas, análisis y herramientas dentro de ese proceso.
-
-En remediaciones normales prioriza revisión enfocada en el cambio. Los escaneos profundos de repositorio quedan reservados para release, riesgo alto real, petición expresa o evidencia que justifique ampliar la investigación.
+Cuando seguridad exige una comprobación, se ejecuta. La capa de eficiencia evita duplicar scans, releer contexto conocido o convertir una remediación concreta en una auditoría completa sin necesidad.
 
 ## Compatibilidad
 
-El núcleo es un único `SKILL.md` basado en el estándar abierto Agent Skills y está pensado para:
+El `SKILL.md` sigue el estándar Agent Skills y está pensado para:
 
 - OpenAI Codex;
 - Google Antigravity IDE;
 - Hermes Agent;
-- ChatGPT Skills cuando esté disponible en la cuenta.
+- ChatGPT Skills cuando esa capacidad esté disponible.
 
-## Instalación recomendada desde este repositorio
+## Instalación recomendada desde el bundle
 
-Para que la misma versión quede coordinada con el resto del bundle usa el setup portable:
+Desde `scripts`:
 
 ```powershell
-cd scripts
+.\Setup-SabasSecureDev.ps1
+```
 
+El selector permite instalar o actualizar Codex, Hermes, Google Antigravity IDE o los tres.
+
+Para una instalación no interactiva:
+
+```powershell
 # Codex
-.\Setup-SabasSecureDev.ps1 -Target Codex
+.\Setup-SabasSecureDev.ps1 -Target Codex -UpdateGlobalAgents -InstallCompletionHook
 
 # Hermes
 .\Setup-SabasSecureDev.ps1 -Target Hermes
 
 # Google Antigravity IDE
 .\Setup-SabasSecureDev.ps1 -Target Antigravity
+
+# Todos
+.\Setup-SabasSecureDev.ps1 -Target All -UpdateGlobalAgents -InstallCompletionHook
 ```
 
-El setup conserva backups antes de sustituir una copia Sabas existente.
+## Google Antigravity IDE
 
-## Instalación manual en Codex
+Antigravity usa Agent Skills con divulgación progresiva.
 
-### Windows PowerShell
-
-```powershell
-$SkillDir = Join-Path $HOME '.agents\skills\sabas-efficient-development'
-New-Item -ItemType Directory -Force -Path $SkillDir | Out-Null
-Invoke-WebRequest `
-    -Uri 'https://raw.githubusercontent.com/djSaBaS/Skill-desarrollo-seguro/main/skills/sabas-efficient-development/SKILL.md' `
-    -OutFile (Join-Path $SkillDir 'SKILL.md')
-```
-
-### Linux / macOS
-
-```bash
-mkdir -p ~/.agents/skills/sabas-efficient-development
-curl -fsSL \
-  https://raw.githubusercontent.com/djSaBaS/Skill-desarrollo-seguro/main/skills/sabas-efficient-development/SKILL.md \
-  -o ~/.agents/skills/sabas-efficient-development/SKILL.md
-```
-
-## Instalación en Google Antigravity IDE
-
-Antigravity IDE descubre skills globales en:
+La ruta global oficial es:
 
 ```text
-~/.gemini/config/skills/<skill-folder>/SKILL.md
+~/.gemini/config/skills/<skill-name>/SKILL.md
 ```
 
-y skills del workspace en:
+La ruta por proyecto es:
 
 ```text
-<workspace>/.agents/skills/<skill-folder>/SKILL.md
+<workspace>/.agents/skills/<skill-name>/SKILL.md
 ```
 
-### Global para todos tus proyectos — Windows PowerShell
+Para instalar esta skill manualmente de forma global en Windows:
 
 ```powershell
 $SkillDir = Join-Path $HOME '.gemini\config\skills\sabas-efficient-development'
@@ -119,7 +101,7 @@ Invoke-WebRequest `
     -OutFile (Join-Path $SkillDir 'SKILL.md')
 ```
 
-### Global para todos tus proyectos — Linux / macOS
+En Linux/macOS:
 
 ```bash
 mkdir -p ~/.gemini/config/skills/sabas-efficient-development
@@ -128,45 +110,44 @@ curl -fsSL \
   -o ~/.gemini/config/skills/sabas-efficient-development/SKILL.md
 ```
 
-Antigravity usa divulgación progresiva: inicialmente conoce el nombre y la descripción de la skill y carga su cuerpo completo cuando resulta relevante.
+Antigravity CLI mantiene un árbol global distinto (`~/.gemini/antigravity-cli/skills/`). El instalador portable de este repositorio configura **Antigravity IDE**; no instala hooks ni plugins en Antigravity CLI.
 
-Antigravity CLI mantiene un árbol global diferente (`~/.gemini/antigravity-cli/skills/`). Para compartir una skill entre IDE y CLI, la opción más portable es mantenerla dentro del workspace en `.agents/skills/`.
+## Codex
 
-Consulta `../../ANTIGRAVITY.md` para la integración completa del bundle.
+Codex descubre la skill global en:
 
-## Instalación en Hermes Agent
-
-```bash
-hermes skills install https://raw.githubusercontent.com/djSaBaS/Skill-desarrollo-seguro/main/skills/sabas-efficient-development/SKILL.md
+```text
+~/.agents/skills/sabas-efficient-development/SKILL.md
 ```
 
-Comprueba después:
+El setup portable la instala aunque el motor de seguridad V0.5.4 original solo administrase las tres skills de seguridad.
 
-```bash
-hermes skills list
-```
+## Hermes
 
-## Actualización portable
+El setup localiza el árbol efectivo de skills de Hermes y añade `sabas-efficient-development` junto a las skills de seguridad. No sustituye la lógica de discovery del plugin nativo de Hermes.
 
-Para actualizar desde el repositorio oficial:
+## Actualización
+
+Para actualizar desde GitHub sin descargar manualmente un nuevo ZIP:
 
 ```powershell
-cd scripts
-
 # Codex
-.\Update-SabasSecureDev.ps1 -Target Codex
+.\Update-SabasSecureDev.ps1 -Target Codex -UpdateGlobalAgents -InstallCompletionHook
 
 # Hermes
 .\Update-SabasSecureDev.ps1 -Target Hermes
 
 # Antigravity IDE
 .\Update-SabasSecureDev.ps1 -Target Antigravity
+
+# Todos
+.\Update-SabasSecureDev.ps1 -Target All -UpdateGlobalAgents -InstallCompletionHook
 ```
 
-El actualizador descarga el bundle público, lo valida y ejecuta el setup en modo `Update`.
+El actualizador descarga el bundle, valida su manifiesto/autopruebas y reutiliza el setup idempotente.
 
 ## Qué no puede garantizar
 
-La skill puede reducir consumo evitable, pero no controla directamente las cuotas del producto ni el coste interno del modelo. El uso final seguirá dependiendo del modelo, nivel de razonamiento, tamaño real de la tarea, herramientas utilizadas y cantidad de contexto necesaria.
+La skill reduce consumo evitable, pero no controla directamente las cuotas del producto ni el coste interno del modelo. El uso final depende del modelo, razonamiento, tamaño real de la tarea, herramientas y contexto.
 
-Si un problema exige análisis amplio, la skill debe priorizar una solución correcta y segura antes que el ahorro.
+Si un problema exige análisis amplio, la corrección y seguridad tienen prioridad sobre el ahorro.
