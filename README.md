@@ -87,6 +87,30 @@ Puedes fijar otra referencia pública:
 .\Update-SabasSecureDev.ps1 -Target Codex -Ref main
 ```
 
+## Desinstalación
+
+El desinstalador cubre los mismos destinos portables y retira las cuatro skills propias del bundle, incluida `sabas-efficient-development`:
+
+```powershell
+cd scripts
+
+# Solo Codex
+.\Uninstall-SabasSecureDev.ps1 -Target Codex -RemoveGlobalAgentsBlock -RemoveCompletionHook
+
+# Solo Hermes
+.\Uninstall-SabasSecureDev.ps1 -Target Hermes
+
+# Solo Antigravity IDE
+.\Uninstall-SabasSecureDev.ps1 -Target Antigravity
+
+# Los tres destinos
+.\Uninstall-SabasSecureDev.ps1 -Target All -RemoveGlobalAgentsBlock -RemoveCompletionHook
+```
+
+`Both` se conserva por compatibilidad y significa Codex + Hermes. `All` incluye además Antigravity IDE.
+
+La retirada del Stop Hook de Codex conserva las entradas ajenas de `hooks.json`, lee el archivo como UTF-8 explícito en Windows PowerShell 5.1 y, cuando necesita modificarlo, lo vuelve a escribir como UTF-8 sin BOM. `usuario-torpe-qa` solo se elimina con `-RemoveBundledUsuarioTorpe` y cuando existe el marcador que acredita que esa copia fue instalada por este bundle. Las skills defensivas externas se preservan deliberadamente.
+
 ## Codex
 
 Codex usa:
@@ -127,7 +151,7 @@ Hermes mantiene:
         └── __init__.py
 ```
 
-El instalador principal conserva su discovery adaptativo mediante `hermes config path`, `HERMES_HOME`, `HERMES_PLUGINS_DEBUG`, `%LOCALAPPDATA%\hermes` y `~/.hermes`. El setup portable localiza después ese árbol efectivo para añadir/actualizar `sabas-efficient-development`.
+El instalador principal conserva su discovery adaptativo mediante `hermes config path`, `HERMES_HOME`, `HERMES_PLUGINS_DEBUG`, `%LOCALAPPDATA%\hermes` y `~/.hermes`. El setup portable vuelve a consultar esas mismas evidencias y deja que el discovery real gane sobre un perfil declarado o variable de entorno stale antes de añadir/actualizar `sabas-efficient-development`.
 
 ## Google Antigravity IDE
 
@@ -224,11 +248,14 @@ Comprueba el núcleo de seguridad y la integración portable:
 - rutas actuales de Antigravity;
 - presencia del Scope Compiler;
 - reparación UTF-8 sin BOM de hooks;
+- cobertura estática del desinstalador portable;
 - estructura del actualizador portable.
+
+CI añade además smoke tests reales en Windows PowerShell 5.1 para el setup Hermes y para la desinstalación conjunta, incluida la preservación de texto Unicode en hooks ajenos.
 
 ## Documentación
 
-- [INSTALL.md](INSTALL.md): instalación, actualización y verificación.
+- [INSTALL.md](INSTALL.md): instalación, actualización, desinstalación y verificación.
 - [ANTIGRAVITY.md](ANTIGRAVITY.md): integración específica de Google Antigravity.
 - [VSCODE.md](VSCODE.md): Codex en VS Code.
 - [SECURITY.md](SECURITY.md): límites de confianza y política de seguridad.
