@@ -1,4 +1,4 @@
-# Declara la raiz del bundle como parametro opcional para CI y ejecucion manual.
+﻿# Declara la raiz del bundle como parametro opcional para CI y ejecucion manual.
 param(
     # Usa el padre de tests por defecto.
     [string]$BundleRoot = (Resolve-Path (Join-Path $PSScriptRoot '..')).Path
@@ -91,7 +91,7 @@ if args == ["plugins", "list"]:
         print(f"[plugins] scanning: {discovery_home / 'plugins'}", file=sys.stderr)
     print(f"scan user plugins: {discovery_home / 'plugins'}")
     if (plugin / "plugin.yaml").is_file():
-        print("sabas-secure-devel... enabled 0.5.4 Security guardrails user")
+        print("sabas-secure-devel… enabled 0.5.4 Security guardrails user")
     raise SystemExit(0)
 if len(args) >= 4 and args[:2] == ["config", "set"]:
     print("configured")
