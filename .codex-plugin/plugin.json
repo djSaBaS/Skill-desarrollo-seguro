@@ -1,0 +1,6 @@
+{
+  "name": "sabas-secure-development",
+  "version": "0.5.4",
+  "description": "Security-first and efficiency-aware development bundle for OpenAI Codex.",
+  "skills": "./skills"
+}

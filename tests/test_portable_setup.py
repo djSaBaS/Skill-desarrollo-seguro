@@ -39,6 +39,29 @@ assert hermes_resolver.index("hermes config path") < hermes_resolver.index("$env
 # Exige que una ruta efectiva de CLI gane frente a homes heredados o variables stale.
 assert "return $CliSkillsTarget" in hermes_resolver
 
+# Lee el runner de autopruebas.
+self_test = (root / "scripts" / "Test-SabasSecureDev.ps1").read_text(encoding="utf-8-sig")
+# Exige copiar archivos ocultos para que el staging de validación conserve manifiestos y marcadores.
+assert "Get-ChildItem -LiteralPath $SourceRoot -Force" in self_test
+# Exige excluir solamente la metadata .git del artefacto validado.
+assert "$BundleEntry.Name -eq '.git'" in self_test
+
+# Exige los archivos de packaging que deben existir también después de un git clone normal.
+required_packaging_files = (
+    ".codex-plugin/plugin.json",
+    ".github/workflows/validate.yml",
+    ".gitattributes",
+    ".gitignore",
+    "hermes-plugin/sabas-secure-development/.sabas-managed-plugin.json",
+    "skills/sabas-efficient-development/agents/openai.yaml",
+    "skills/sabas-security-bootstrap/assets/.sabas-security.yml",
+    "support-skills/usuario-torpe-qa/.sabas-bundled-support.json",
+    "templates/.sabas-security.yml",
+)
+# Comprueba cada archivo crítico de distribución.
+for relative_path in required_packaging_files:
+    assert (root / relative_path).is_file(), relative_path
+
 # Lee el actualizador remoto.
 updater = (root / "scripts" / "Update-SabasSecureDev.ps1").read_text(encoding="utf-8-sig")
 # Exige que el origen sea el repositorio oficial.

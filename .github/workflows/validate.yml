@@ -1,0 +1,40 @@
+name: Validate Sabas Secure Development
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux bundle validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Configure Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.12"
+      - name: Run portable self-test
+        shell: pwsh
+        run: ./scripts/Test-SabasSecureDev.ps1
+
+  windows:
+    name: Windows PowerShell validation
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262
+      - name: Configure Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.12"
+      - name: Run bundle self-test
+        shell: powershell
+        run: .\scripts\Test-SabasSecureDev.ps1
+      - name: Run Hermes installer smoke test
+        shell: powershell
+        run: .\tests\Invoke-HermesInstallerSmoke.ps1
