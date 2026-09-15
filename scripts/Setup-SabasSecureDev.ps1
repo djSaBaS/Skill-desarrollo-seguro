@@ -136,11 +136,9 @@ function Install-SabasPortableTorpe {
 
 # Localiza el árbol de skills de Hermes realmente utilizado por la instalación.
 function Resolve-SabasHermesSkillsTarget {
-    # Inicializa la lista de candidatos.
-    $Candidates = New-Object System.Collections.Generic.List[string]
-    # Añade HERMES_HOME cuando está definido.
-    if (-not [string]::IsNullOrWhiteSpace($env:HERMES_HOME)) { $Candidates.Add((Join-Path $env:HERMES_HOME 'skills')) }
-    # Pregunta a Hermes por su configuración efectiva cuando la CLI está disponible.
+    # Inicializa la ruta efectiva reportada por la CLI como fuente de verdad preferente.
+    $CliSkillsTarget = $null
+    # Pregunta primero a Hermes por su configuración efectiva cuando la CLI está disponible.
     if (Get-Command hermes -ErrorAction SilentlyContinue) {
         # Conserva la política de errores del wrapper.
         $PreviousErrorActionPreference = $ErrorActionPreference
@@ -167,24 +165,32 @@ function Resolve-SabasHermesSkillsTarget {
                 if ($Text -match '(?i)([A-Z]:[\\/].*config\.ya?ml|/.*config\.ya?ml)\s*$') {
                     # Obtiene el home efectivo a partir del fichero de configuración.
                     $ResolvedHome = Split-Path -Parent $Matches[1]
-                    # Añade su árbol de skills como candidato prioritario.
-                    $Candidates.Add((Join-Path $ResolvedHome 'skills'))
+                    # Construye el árbol de skills del perfil que Hermes declara activo.
+                    $CliSkillsTarget = Join-Path $ResolvedHome 'skills'
+                    # Una ruta efectiva válida tiene prioridad sobre homes heredados o variables stale.
+                    break
                 }
             }
         }
     }
+    # Devuelve directamente el perfil efectivo cuando Hermes pudo declararlo.
+    if (-not [string]::IsNullOrWhiteSpace($CliSkillsTarget)) { return $CliSkillsTarget }
+    # Inicializa los fallbacks solo cuando la CLI no pudo resolver el perfil activo.
+    $Candidates = New-Object System.Collections.Generic.List[string]
+    # Añade HERMES_HOME como primer fallback explícito, nunca por delante de `hermes config path`.
+    if (-not [string]::IsNullOrWhiteSpace($env:HERMES_HOME)) { $Candidates.Add((Join-Path $env:HERMES_HOME 'skills')) }
     # Añade el layout Windows moderno cuando existe LOCALAPPDATA.
     if (($env:OS -eq 'Windows_NT') -and (-not [string]::IsNullOrWhiteSpace($env:LOCALAPPDATA))) { $Candidates.Add((Join-Path $env:LOCALAPPDATA 'hermes\skills')) }
     # Añade el layout histórico portable como último fallback.
     $Candidates.Add((Join-Path $HOME '.hermes\skills'))
     # Elimina duplicados preservando orden.
     $UniqueCandidates = @($Candidates | Select-Object -Unique)
-    # Prefiere el árbol donde el instalador principal ya dejó sabas-secure-qa.
+    # Prefiere entre fallbacks el árbol donde el instalador principal ya dejó sabas-secure-qa.
     foreach ($Candidate in $UniqueCandidates) {
         # Devuelve el primer árbol confirmado por una skill instalada.
         if (Test-Path (Join-Path $Candidate 'sabas-secure-qa\SKILL.md')) { return $Candidate }
     }
-    # Devuelve el primer candidato cuando todavía no existe ninguna instalación previa.
+    # Devuelve el primer fallback cuando todavía no existe ninguna instalación previa.
     return $UniqueCandidates[0]
 }
 
@@ -196,13 +202,31 @@ function Repair-SabasCodexHooksEncoding {
     $HooksFile = Join-Path $CodexHome 'hooks.json'
     # Sale cuando no existe ningún archivo que reparar.
     if (-not (Test-Path $HooksFile)) { return }
-    # Lee el contenido completo sin alterar su estructura.
-    $RawHooks = Get-Content -Raw -Path $HooksFile
-    # Valida que el archivo siga siendo JSON antes de reescribirlo.
+    # Lee los bytes originales para no depender de la code page activa de Windows PowerShell 5.1.
+    $SourceBytes = [System.IO.File]::ReadAllBytes($HooksFile)
+    # Detecta si el archivo empieza por la firma UTF-8 BOM que Codex no acepta.
+    $HadUtf8Bom = ($SourceBytes.Length -ge 3) -and ($SourceBytes[0] -eq 0xEF) -and ($SourceBytes[1] -eq 0xBB) -and ($SourceBytes[2] -eq 0xBF)
+    # Calcula el offset de decodificación para retirar únicamente la firma BOM cuando exista.
+    $Utf8Offset = if ($HadUtf8Bom) { 3 } else { 0 }
+    # Calcula el número de bytes de contenido real.
+    $Utf8Count = $SourceBytes.Length - $Utf8Offset
+    # Crea un decodificador UTF-8 estricto, sin BOM y con excepción ante bytes inválidos.
+    $Utf8Strict = New-Object System.Text.UTF8Encoding($false, $true)
+    # Decodifica explícitamente como UTF-8 para preservar correctamente cualquier carácter no ASCII.
+    try { $RawHooks = $Utf8Strict.GetString($SourceBytes, $Utf8Offset, $Utf8Count) }
+    catch { throw 'Codex hooks.json is not valid UTF-8; refusing to rewrite user hook configuration.' }
+    # Valida que el archivo siga siendo JSON antes de cualquier posible reescritura.
     if (-not [string]::IsNullOrWhiteSpace($RawHooks)) { $null = $RawHooks | ConvertFrom-Json }
-    # Conserva una copia previa específica del wrapper.
+    # Si ya era UTF-8 sin BOM no modifica una configuración de usuario que ya está correcta.
+    if (-not $HadUtf8Bom) {
+        # Confirma que el archivo ya cumple el formato esperado.
+        Write-Host 'Codex hooks.json encoding: UTF-8 without BOM (PASS)'
+        # Finaliza sin crear una reescritura innecesaria.
+        return
+    }
+    # Conserva una copia previa específica del wrapper antes de retirar el BOM.
     Copy-Item -Force -Path $HooksFile -Destination (Join-Path $BackupRoot 'codex-hooks-before-utf8-repair.json')
-    # Crea una codificación UTF-8 explícitamente sin BOM.
+    # Crea una codificación UTF-8 explícitamente sin BOM para la escritura final.
     $Utf8NoBom = New-Object System.Text.UTF8Encoding($false)
     # Reescribe exactamente el mismo JSON evitando el BOM que Codex rechaza.
     [System.IO.File]::WriteAllText($HooksFile, $RawHooks, $Utf8NoBom)
