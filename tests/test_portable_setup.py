@@ -26,18 +26,51 @@ assert "Get-Content -Raw -Path $HooksFile" not in setup
 assert "System.IO.File]::WriteAllText" in setup
 # Exige verificación SHA-256 del hook instalado.
 assert "Get-FileHash -Algorithm SHA256" in setup
-# Exige soporte explícito de los cuatro destinos.
+# Exige soporte explícito de los cuatro destinos del setup.
 for target in ("Codex", "Hermes", "Antigravity", "All"):
+    # Verifica cada destino esperado.
     assert target in setup
 
 # Aísla la resolución de Hermes para validar el orden de fuentes sin depender de otras menciones del entorno.
 hermes_resolver = setup[
     setup.index("function Resolve-SabasHermesSkillsTarget") : setup.index("function Repair-SabasCodexHooksEncoding")
 ]
-# Exige consultar primero el perfil efectivo que declara la CLI de Hermes.
+# Exige consultar el perfil declarado por Hermes antes de los fallbacks heredados.
 assert hermes_resolver.index("hermes config path") < hermes_resolver.index("$env:HERMES_HOME")
-# Exige que una ruta efectiva de CLI gane frente a homes heredados o variables stale.
-assert "return $CliSkillsTarget" in hermes_resolver
+# Exige conservar discovery real mediante HERMES_PLUGINS_DEBUG.
+assert "HERMES_PLUGINS_DEBUG" in hermes_resolver
+# Exige que el wrapper capture la salida de discovery antes de decidir por una instalación previa.
+assert hermes_resolver.index("$DiscoveryOutput") < hermes_resolver.index(r"sabas-secure-qa\SKILL.md")
+# Impide volver a hacer definitivo config path antes de consultar discovery.
+assert "return $CliSkillsTarget" not in hermes_resolver
+
+# Lee el desinstalador portable como texto.
+uninstaller = (root / "scripts" / "Uninstall-SabasSecureDev.ps1").read_text(encoding="utf-8-sig")
+# Exige que la desinstalación cubra los tres runtimes y el destino conjunto.
+for target in ("Codex", "Hermes", "Antigravity", "All", "Both"):
+    # Verifica cada destino compatible, incluido Both heredado.
+    assert target in uninstaller
+# Exige retirar también la skill de eficiencia instalada por el wrapper.
+assert "sabas-efficient-development" in uninstaller
+# Exige usar la misma ruta global oficial de Antigravity que el instalador.
+assert ".gemini\\config\\skills" in uninstaller
+# Exige helpers explícitos de UTF-8 estricto y escritura sin BOM.
+assert "System.Text.UTF8Encoding($false, $true)" in uninstaller
+# Exige escritura .NET sin depender de Set-Content -Encoding utf8.
+assert "System.IO.File]::WriteAllText" in uninstaller
+
+# Aísla la retirada del Stop Hook para validar que preserve hooks ajenos sin corromper Unicode.
+hook_remover = uninstaller[
+    uninstaller.index("function Remove-SabasCodexHook") : uninstaller.index("function Remove-SabasHermesPlugin")
+]
+# Exige lectura UTF-8 explícita del JSON compartido.
+assert "Read-SabasUtf8Text -Path $HooksFile" in hook_remover
+# Exige escritura UTF-8 sin BOM del JSON preservado.
+assert "Write-SabasUtf8NoBom -Path $HooksFile" in hook_remover
+# Impide reintroducir lectura ANSI implícita en el flujo de desinstalación.
+assert "Get-Content -Raw -Path $HooksFile" not in hook_remover
+# Impide reintroducir Set-Content -Encoding utf8 en hooks.json.
+assert "Set-Content -Path $HooksFile" not in hook_remover
 
 # Lee el runner de autopruebas.
 self_test = (root / "scripts" / "Test-SabasSecureDev.ps1").read_text(encoding="utf-8-sig")
@@ -57,10 +90,19 @@ required_packaging_files = (
     "skills/sabas-security-bootstrap/assets/.sabas-security.yml",
     "support-skills/usuario-torpe-qa/.sabas-bundled-support.json",
     "templates/.sabas-security.yml",
+    "tests/Invoke-UninstallerSmoke.ps1",
 )
 # Comprueba cada archivo crítico de distribución.
 for relative_path in required_packaging_files:
+    # Exige que el archivo exista realmente en el checkout.
     assert (root / relative_path).is_file(), relative_path
+
+# Lee el workflow de CI para exigir cobertura Windows del desinstalador.
+workflow = (root / ".github" / "workflows" / "validate.yml").read_text(encoding="utf-8")
+# Exige el smoke test de desinstalación en el job Windows PowerShell 5.1.
+assert "Invoke-UninstallerSmoke.ps1" in workflow
+# Exige que CI deje una huella SHA-256 auditable de los componentes portables modificados.
+assert "Report portable component hashes" in workflow
 
 # Lee el actualizador remoto.
 updater = (root / "scripts" / "Update-SabasSecureDev.ps1").read_text(encoding="utf-8-sig")

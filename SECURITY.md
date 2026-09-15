@@ -26,6 +26,16 @@ It does not download code, execute model-provided shell text or modify project f
 
 `hooks.json` is normalized by the portable setup to UTF-8 without BOM because current Codex parsing can reject a Windows PowerShell 5.1 UTF-8 BOM at byte zero.
 
+The inverse path is equally conservative. `Uninstall-SabasSecureDev.ps1 -RemoveCompletionHook` decodes `hooks.json` from bytes using strict UTF-8, accepts an existing UTF-8 BOM only as input compatibility, removes only the Sabas Stop entry, preserves unrelated hooks and writes the resulting JSON as UTF-8 without BOM. This avoids silently corrupting non-ASCII commands, descriptions or status messages when uninstalling from Windows PowerShell 5.1.
+
+## Uninstaller ownership boundary
+
+The uninstaller removes only the four first-party Sabas skills installed by this bundle for the selected target: `sabas-efficient-development`, `sabas-secure-qa`, `sabas-threat-model` and `sabas-security-bootstrap`.
+
+`usuario-torpe-qa` is removed only when the user explicitly passes `-RemoveBundledUsuarioTorpe` and the installed copy still contains the Sabas ownership marker. Optional third-party security skills are intentionally left installed because they can be used independently.
+
+`Both` is retained as the legacy Codex + Hermes target. `All` additionally includes Google Antigravity IDE and removes the first-party Agent Skills from `~/.gemini/config/skills/`.
+
 ## Remote updater trust boundary
 
 `Update-SabasSecureDev.ps1` downloads a public archive from `djSaBaS/Skill-desarrollo-seguro` and executes the included setup after extraction. Use it only when you trust that repository/ref.

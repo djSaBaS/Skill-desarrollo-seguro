@@ -14,6 +14,10 @@
 - Añade autopruebas para impedir reintroducir la ruta antigua de Antigravity, perder la reparación UTF-8 sin BOM o romper el actualizador portable.
 - Añade `ANTIGRAVITY.md` y actualiza README, INSTALL, VSCODE, SECURITY y la documentación propia de `sabas-efficient-development`.
 - La integración Antigravity es deliberadamente declarativa: instala Agent Skills, pero no instala el Stop Hook de Codex, el plugin de Hermes, MCPs ni hooks adicionales.
+- Corrige la resolución portable de Hermes para que `HERMES_PLUGINS_DEBUG`/discovery real pueda ganar frente a un `hermes config path` o `HERMES_HOME` stale, evitando que `sabas-efficient-development` termine en un perfil que el runtime no está escaneando.
+- Amplía `Uninstall-SabasSecureDev.ps1` con destinos `Antigravity` y `All`, conserva `Both` por compatibilidad y retira también `sabas-efficient-development` de Codex/Hermes/Antigravity.
+- Endurece la retirada del Stop Hook: `hooks.json` se lee como bytes con UTF-8 estricto, conserva hooks ajenos y se escribe como UTF-8 sin BOM, evitando corrupción silenciosa de texto no ASCII en Windows PowerShell 5.1.
+- Añade smoke tests Windows para la discrepancia config/discovery de Hermes y para la desinstalación conjunta, incluida la preservación de Unicode en hooks ajenos.
 
 ## V0.5.4
 

@@ -41,6 +41,21 @@ Desde una copia ya instalada del repositorio:
 
 El actualizador descarga `main` del repositorio oficial por defecto, ejecuta el setup en modo `Update` y conserva backups antes de sustituir componentes.
 
+## Desinstalación
+
+Para retirar las cuatro skills propias de Sabas y, de forma explícita, el bloque global y el Stop Hook:
+
+```powershell
+.\Uninstall-SabasSecureDev.ps1 `
+    -Target Codex `
+    -RemoveGlobalAgentsBlock `
+    -RemoveCompletionHook
+```
+
+La retirada del Stop Hook no reemplaza `hooks.json` a ciegas: elimina únicamente la entrada que referencia `sabas_secure_stop.py`, preserva las demás entradas, decodifica el archivo como UTF-8 estricto y lo escribe sin BOM. Esto evita que Windows PowerShell 5.1 corrompa texto no ASCII perteneciente a otros hooks.
+
+`usuario-torpe-qa` solo se retira si además indicas `-RemoveBundledUsuarioTorpe` y la copia instalada conserva el marcador de propiedad del bundle. Las skills externas se dejan intactas.
+
 ## Árbol esperado
 
 ```text
@@ -95,6 +110,8 @@ El setup portable compara por SHA-256 el hook instalado con la copia auditada de
 Se detectó una incompatibilidad real: `Set-Content -Encoding utf8` en Windows PowerShell 5.1 puede escribir BOM (`EF BB BF`), mientras que el parser actual de Codex espera que el JSON empiece directamente por `{`.
 
 Después de ejecutar el instalador V0.5.4, el setup portable vuelve a validar `hooks.json` y lo reescribe en UTF-8 sin BOM mediante .NET. No cambia su estructura JSON ni elimina hooks ajenos.
+
+El mismo criterio se aplica al desinstalar: `Uninstall-SabasSecureDev.ps1 -RemoveCompletionHook` lee bytes, usa un decodificador UTF-8 estricto, conserva hooks ajenos y escribe el JSON resultante sin BOM.
 
 Si quieres comprobarlo manualmente:
 

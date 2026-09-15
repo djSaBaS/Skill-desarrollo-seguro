@@ -133,6 +133,22 @@ Desde `scripts`:
 
 El actualizador descarga la referencia pública indicada (`main` por defecto), ejecuta las autopruebas y sustituye únicamente las skills Sabas administradas.
 
+## Desinstalación
+
+Para retirar las skills propias instaladas globalmente por este bundle:
+
+```powershell
+.\Uninstall-SabasSecureDev.ps1 -Target Antigravity
+```
+
+También puedes retirarlas de los tres runtimes a la vez:
+
+```powershell
+.\Uninstall-SabasSecureDev.ps1 -Target All
+```
+
+El desinstalador elimina `sabas-efficient-development`, `sabas-secure-qa`, `sabas-threat-model` y `sabas-security-bootstrap` de `~/.gemini/config/skills/`. No borra una copia de `usuario-torpe-qa` salvo que se solicite `-RemoveBundledUsuarioTorpe` y exista el marcador de propiedad del bundle. Las skills externas se preservan.
+
 ## Antigravity CLI
 
 Antigravity CLI usa un árbol global distinto:
@@ -160,6 +176,8 @@ Después de instalar, comprueba que exista:
 ```
 
 y reinicia/recarga Antigravity para forzar un nuevo discovery de skills si la sesión ya estaba abierta.
+
+Después de desinstalar, esas cuatro carpetas propias no deben seguir presentes ni detectables por Antigravity.
 
 ## Referencias oficiales
 
