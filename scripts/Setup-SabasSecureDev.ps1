@@ -134,12 +134,30 @@ function Install-SabasPortableTorpe {
     Write-Host "$Action [$PlatformName]: usuario-torpe-qa"
 }
 
-# Localiza el árbol de skills de Hermes realmente utilizado por la instalación.
+# Localiza el árbol de skills de Hermes realmente utilizado por la instalación y confirmado por discovery cuando sea posible.
 function Resolve-SabasHermesSkillsTarget {
-    # Inicializa la ruta efectiva reportada por la CLI como fuente de verdad preferente.
-    $CliSkillsTarget = $null
+    # Inicializa candidatos ordenados por confianza teórica.
+    $Candidates = New-Object System.Collections.Generic.List[object]
+    # Define un helper local para añadir homes sin duplicados.
+    function Add-SabasHermesCandidate {
+        # Recibe home y fuente de evidencia.
+        param([string]$HomePath, [string]$Source)
+        # Ignora rutas vacías.
+        if ([string]::IsNullOrWhiteSpace($HomePath)) { return }
+        # Normaliza separadores finales sin exigir que el directorio exista todavía.
+        $NormalizedHome = ([string]$HomePath).TrimEnd([char]92, [char]47)
+        # Evita duplicados sin distinguir mayúsculas/minúsculas.
+        foreach ($Existing in $Candidates) {
+            # Sale si el home ya estaba registrado.
+            if ([string]::Equals([string]$Existing.Home, $NormalizedHome, [System.StringComparison]::OrdinalIgnoreCase)) { return }
+        }
+        # Añade home, skills target y procedencia.
+        $Candidates.Add([PSCustomObject]@{ Home = $NormalizedHome; Skills = (Join-Path $NormalizedHome 'skills'); Source = $Source })
+    }
+    # Detecta si la CLI Hermes está disponible.
+    $HermesAvailable = $null -ne (Get-Command hermes -ErrorAction SilentlyContinue)
     # Pregunta primero a Hermes por su configuración efectiva cuando la CLI está disponible.
-    if (Get-Command hermes -ErrorAction SilentlyContinue) {
+    if ($HermesAvailable) {
         # Conserva la política de errores del wrapper.
         $PreviousErrorActionPreference = $ErrorActionPreference
         # Ejecuta la consulta de forma tolerante a stderr informativo.
@@ -163,35 +181,69 @@ function Resolve-SabasHermesSkillsTarget {
                 $Text = ([string]$Line).Trim()
                 # Detecta una ruta de configuración existente.
                 if ($Text -match '(?i)([A-Z]:[\\/].*config\.ya?ml|/.*config\.ya?ml)\s*$') {
-                    # Obtiene el home efectivo a partir del fichero de configuración.
-                    $ResolvedHome = Split-Path -Parent $Matches[1]
-                    # Construye el árbol de skills del perfil que Hermes declara activo.
-                    $CliSkillsTarget = Join-Path $ResolvedHome 'skills'
-                    # Una ruta efectiva válida tiene prioridad sobre homes heredados o variables stale.
+                    # Añade como primer candidato el perfil que declara la CLI.
+                    Add-SabasHermesCandidate -HomePath (Split-Path -Parent $Matches[1]) -Source 'hermes config path'
+                    # Basta una ruta válida de configuración.
                     break
                 }
             }
         }
     }
-    # Devuelve directamente el perfil efectivo cuando Hermes pudo declararlo.
-    if (-not [string]::IsNullOrWhiteSpace($CliSkillsTarget)) { return $CliSkillsTarget }
-    # Inicializa los fallbacks solo cuando la CLI no pudo resolver el perfil activo.
-    $Candidates = New-Object System.Collections.Generic.List[string]
-    # Añade HERMES_HOME como primer fallback explícito, nunca por delante de `hermes config path`.
-    if (-not [string]::IsNullOrWhiteSpace($env:HERMES_HOME)) { $Candidates.Add((Join-Path $env:HERMES_HOME 'skills')) }
+    # Añade HERMES_HOME como fallback explícito, nunca como evidencia superior a discovery real.
+    Add-SabasHermesCandidate -HomePath $env:HERMES_HOME -Source 'HERMES_HOME environment variable'
     # Añade el layout Windows moderno cuando existe LOCALAPPDATA.
-    if (($env:OS -eq 'Windows_NT') -and (-not [string]::IsNullOrWhiteSpace($env:LOCALAPPDATA))) { $Candidates.Add((Join-Path $env:LOCALAPPDATA 'hermes\skills')) }
-    # Añade el layout histórico portable como último fallback.
-    $Candidates.Add((Join-Path $HOME '.hermes\skills'))
-    # Elimina duplicados preservando orden.
-    $UniqueCandidates = @($Candidates | Select-Object -Unique)
-    # Prefiere entre fallbacks el árbol donde el instalador principal ya dejó sabas-secure-qa.
-    foreach ($Candidate in $UniqueCandidates) {
-        # Devuelve el primer árbol confirmado por una skill instalada.
-        if (Test-Path (Join-Path $Candidate 'sabas-secure-qa\SKILL.md')) { return $Candidate }
+    if (($env:OS -eq 'Windows_NT') -and (-not [string]::IsNullOrWhiteSpace($env:LOCALAPPDATA))) {
+        # Registra %LOCALAPPDATA%\hermes.
+        Add-SabasHermesCandidate -HomePath (Join-Path $env:LOCALAPPDATA 'hermes') -Source 'Windows LOCALAPPDATA default'
     }
-    # Devuelve el primer fallback cuando todavía no existe ninguna instalación previa.
-    return $UniqueCandidates[0]
+    # Añade el layout histórico/portable como último fallback.
+    Add-SabasHermesCandidate -HomePath (Join-Path $HOME '.hermes') -Source 'legacy/POSIX ~/.hermes fallback'
+    # Exige al menos un candidato razonable.
+    if ($Candidates.Count -eq 0) { throw 'Unable to resolve any Hermes home candidate.' }
+    # Usa HERMES_PLUGINS_DEBUG para reutilizar la misma evidencia empírica que el instalador core.
+    if ($HermesAvailable) {
+        # Conserva el estado previo de debug.
+        $PreviousPluginsDebug = $env:HERMES_PLUGINS_DEBUG
+        # Conserva la política de errores previa.
+        $PreviousDiscoveryErrorActionPreference = $ErrorActionPreference
+        # Ejecuta discovery sin convertir stderr informativo en fallo.
+        try {
+            # Trata stderr como datos durante la consulta.
+            $ErrorActionPreference = 'Continue'
+            # Activa el diagnóstico oficial de discovery.
+            $env:HERMES_PLUGINS_DEBUG = '1'
+            # Captura la salida de plugins list.
+            $DiscoveryOutput = @(& hermes plugins list 2>&1)
+            # Conserva el exit code real.
+            $DiscoveryExitCode = $LASTEXITCODE
+        }
+        finally {
+            # Restaura la política de errores.
+            $ErrorActionPreference = $PreviousDiscoveryErrorActionPreference
+            # Restaura exactamente la variable de debug.
+            if ($null -eq $PreviousPluginsDebug) { Remove-Item Env:HERMES_PLUGINS_DEBUG -ErrorAction SilentlyContinue }
+            else { $env:HERMES_PLUGINS_DEBUG = $PreviousPluginsDebug }
+        }
+        # Procesa discovery únicamente cuando la CLI terminó correctamente.
+        if ($DiscoveryExitCode -eq 0) {
+            # Une líneas, elimina secuencias ANSI y normaliza separadores/case.
+            $DiscoveryText = (((@($DiscoveryOutput) | ForEach-Object { ([string]$_) -replace '\x1B\[[0-?]*[ -/]*[@-~]', '' }) -join [Environment]::NewLine).Replace([char]92, [char]47)).ToLowerInvariant()
+            # Recorre todos los candidatos, incluido config path, sin devolver ninguno antes de discovery.
+            foreach ($Candidate in $Candidates) {
+                # Construye la ruta de plugins que Hermes debería anunciar para ese home.
+                $CandidatePlugins = (([string]$Candidate.Home).Replace([char]92, [char]47).TrimEnd('/') + '/plugins').ToLowerInvariant()
+                # Devuelve el árbol de skills del home realmente escaneado por Hermes.
+                if ($DiscoveryText.Contains($CandidatePlugins)) { return [string]$Candidate.Skills }
+            }
+        }
+    }
+    # Si discovery no pudo decidir, prefiere el árbol donde el core ya instaló sabas-secure-qa.
+    foreach ($Candidate in $Candidates) {
+        # Devuelve el primer árbol confirmado por una skill instalada.
+        if (Test-Path (Join-Path ([string]$Candidate.Skills) 'sabas-secure-qa\SKILL.md')) { return [string]$Candidate.Skills }
+    }
+    # Devuelve el candidato teórico de mayor confianza como último fallback.
+    return [string]$Candidates[0].Skills
 }
 
 # Reescribe hooks.json de Codex en UTF-8 sin BOM y verifica que siga siendo JSON válido.
@@ -330,7 +382,7 @@ if (($Target -eq 'Codex') -or ($Target -eq 'All')) {
 
 # Completa sabas-efficient-development en el home efectivo de Hermes.
 if (($Target -eq 'Hermes') -or ($Target -eq 'All')) {
-    # Localiza el árbol que realmente usa Hermes.
+    # Localiza el árbol que realmente usa Hermes, dando prioridad a discovery confirmado.
     $HermesSkillsTarget = Resolve-SabasHermesSkillsTarget
     # Instala o actualiza la skill de eficiencia.
     Install-SabasPortableSkill -SkillName 'sabas-efficient-development' -SkillsTarget $HermesSkillsTarget -PlatformName 'Hermes'
