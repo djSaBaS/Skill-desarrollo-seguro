@@ -1,48 +1,62 @@
-# Instalación — Sabas Secure Development V0.5.4
+# Instalación y actualización — Sabas Secure Development
+
+Este bundle combina **Sabas Secure Development V0.5.4** con **Sabas Efficient Development V0.2.0** y soporta:
+
+- OpenAI Codex CLI/IDE;
+- Hermes Agent;
+- Google Antigravity IDE.
+
+La forma recomendada de trabajar es mediante `Setup-SabasSecureDev.ps1`. El instalador V0.5.4 original se conserva como motor interno probado para Codex/Hermes.
 
 ## Requisitos
 
-- Windows PowerShell 5.1 o PowerShell 7+ para los instaladores incluidos.
+- Windows PowerShell 5.1 o PowerShell 7+ para los scripts incluidos.
 - Python 3.
-- Git si vas a instalar las skills externas.
-- Codex instalado si eliges Codex.
-- Hermes Agent instalado si eliges Hermes. Si la CLI `hermes` está en `PATH`, el instalador valida y activa automáticamente el plugin.
+- Git si vas a instalar skills defensivas externas.
+- Codex si eliges Codex.
+- Hermes Agent si eliges Hermes.
+- Google Antigravity IDE si eliges Antigravity.
 
-## 1. Desbloquear el ZIP descargado
+## 1. Desbloquear un ZIP descargado
 
-Desde la carpeta `scripts`:
+Desde `scripts`:
 
 ```powershell
 Get-ChildItem -Path ".." -Recurse -File | Unblock-File
 ```
 
-Esto evita modificar permanentemente la política global de ejecución de PowerShell.
+No es necesario cambiar permanentemente la Execution Policy.
 
-## 2. Elegir destino mediante menú
+## 2. Instalación recomendada
 
-Ejecuta:
+Desde `scripts`:
 
 ```powershell
-.\Install-SabasSecureDev.ps1 -InstallExternalSkills -ExternalProfile all -UpdateGlobalAgents -InstallCompletionHook
+.\Setup-SabasSecureDev.ps1
 ```
 
-El instalador preguntará:
+El selector muestra:
 
 ```text
-Selecciona dónde instalar Sabas Secure Development V0.5.4:
-  1) Codex
-  2) Hermes
-  3) Codex + Hermes
+1) Codex
+2) Hermes Agent
+3) Google Antigravity IDE
+4) Todos
 ```
-
-Los parámetros específicos de Codex (`-UpdateGlobalAgents` y `-InstallCompletionHook`) se ignoran de forma natural si eliges únicamente Hermes.
-
-## 3. Instalación no interactiva
 
 ### Codex
 
 ```powershell
-.\Install-SabasSecureDev.ps1 `
+.\Setup-SabasSecureDev.ps1 `
+    -Target Codex `
+    -UpdateGlobalAgents `
+    -InstallCompletionHook
+```
+
+Con las skills defensivas externas opcionales:
+
+```powershell
+.\Setup-SabasSecureDev.ps1 `
     -Target Codex `
     -InstallExternalSkills `
     -ExternalProfile all `
@@ -53,137 +67,239 @@ Los parámetros específicos de Codex (`-UpdateGlobalAgents` y `-InstallCompleti
 ### Hermes
 
 ```powershell
-.\Install-SabasSecureDev.ps1 `
+.\Setup-SabasSecureDev.ps1 -Target Hermes
+```
+
+Con skills externas:
+
+```powershell
+.\Setup-SabasSecureDev.ps1 `
     -Target Hermes `
     -InstallExternalSkills `
     -ExternalProfile all
 ```
 
-### Codex + Hermes
+### Google Antigravity IDE
 
 ```powershell
-.\Install-SabasSecureDev.ps1 `
-    -Target Both `
-    -InstallExternalSkills `
-    -ExternalProfile all `
+.\Setup-SabasSecureDev.ps1 -Target Antigravity
+```
+
+### Todos
+
+```powershell
+.\Setup-SabasSecureDev.ps1 `
+    -Target All `
     -UpdateGlobalAgents `
     -InstallCompletionHook
 ```
 
-## Qué hace antes de modificar nada
+`All` instala las skills propias en los tres agentes. Las skills externas opcionales siguen instalándose únicamente en Codex/Hermes porque su integración y allowlist fueron validadas originalmente para esos agentes.
 
-1. Hace que el parser nativo de PowerShell analice todos los `.ps1` auxiliares.
-2. Ejecuta `validate_bundle.py`.
-3. Verifica `MANIFEST.sha256`.
-4. Comprueba estructura de las skills, JSON y sintaxis Python.
+## 3. Qué hace el setup portable
 
-Si cualquiera de esas comprobaciones falla, la instalación se detiene.
+Para Codex/Hermes:
 
-## Instalación Codex
+1. delega en `Install-SabasSecureDev.ps1`, que conserva las validaciones y discovery V0.5.4;
+2. instala/actualiza también `sabas-efficient-development`;
+3. conserva backups antes de reemplazar la copia anterior;
+4. en Codex, normaliza `hooks.json` a UTF-8 sin BOM;
+5. en Codex, compara por SHA-256 `sabas_secure_stop.py` instalado contra la copia auditada del bundle.
 
-Las skills se copian en:
+Para Antigravity:
 
-```text
-$HOME\.agents\skills
+1. ejecuta `Test-SabasSecureDev.ps1` antes de copiar;
+2. instala las Agent Skills propias en la ruta global oficial;
+3. preserva una copia existente de `usuario-torpe-qa`;
+4. no instala hooks ni plugins fuera del mecanismo de Agent Skills.
+
+## 4. Actualización desde GitHub
+
+Puedes actualizar sin descargar manualmente otro ZIP:
+
+```powershell
+.\Update-SabasSecureDev.ps1 -Target Codex -UpdateGlobalAgents -InstallCompletionHook
 ```
 
-El instalador conserva versiones previas en:
-
-```text
-$HOME\.sabas-secure-development\backups\<fecha>
+```powershell
+.\Update-SabasSecureDev.ps1 -Target Hermes
 ```
 
-Con `-UpdateGlobalAgents`, añade un bloque delimitado y actualizable dentro de:
-
-```text
-$CODEX_HOME\AGENTS.md
+```powershell
+.\Update-SabasSecureDev.ps1 -Target Antigravity
 ```
 
-Si existe un `AGENTS.override.md` no vacío, también garantiza el bloque allí para que la configuración efectiva no deje el gate fuera.
-
-Con `-InstallCompletionHook`, instala:
-
-```text
-$CODEX_HOME\hooks\sabas_secure_stop.py
+```powershell
+.\Update-SabasSecureDev.ps1 -Target All -UpdateGlobalAgents -InstallCompletionHook
 ```
 
-y fusiona su entrada con `hooks.json` preservando otros hooks.
+El actualizador:
 
-Después abre `/hooks` en Codex, revisa el hook Sabas y confíalo únicamente si la definición apunta al script instalado.
+1. descarga el repositorio oficial `djSaBaS/Skill-desarrollo-seguro`;
+2. usa `main` por defecto;
+3. expande el bundle en una carpeta temporal;
+4. localiza exactamente un `Setup-SabasSecureDev.ps1`;
+5. ejecuta el setup con `-Action Update`;
+6. elimina siempre la carpeta temporal.
 
-## Instalación Hermes
+La actualización sigue pasando por las validaciones del bundle. No se hace un `curl | powershell` ni se ejecuta una respuesta de red directamente.
 
-Las skills se copian en:
+Puedes indicar otra referencia pública:
 
-```text
-$HERMES_HOME\skills
+```powershell
+.\Update-SabasSecureDev.ps1 -Target Codex -Ref main
 ```
 
-El plugin se copia en:
+## 5. Codex
+
+### Skills
+
+Ruta global:
 
 ```text
-$HERMES_HOME\plugins\sabas-secure-development
+~/.agents/skills/
+├── sabas-efficient-development/
+├── sabas-secure-qa/
+├── sabas-threat-model/
+├── sabas-security-bootstrap/
+└── usuario-torpe-qa/
 ```
 
-Cuando `hermes` está disponible en `PATH`, el instalador combina `hermes config path`, `HERMES_HOME` y `HERMES_PLUGINS_DEBUG=1 hermes plugins list`. La comprobación primaria de estado usa `hermes plugins list --plain --no-bundled`, porque la tabla visual puede truncar `sabas-secure-development` según el ancho de consola. En Windows compara además `%LOCALAPPDATA%\hermes` con el layout heredado `~\.hermes`. Si el primer destino no funciona, prueba de forma controlada los candidatos seguros y conserva el que Hermes realmente descubre. Una copia Sabas antigua en un home alternativo solo se retira si el instalador puede demostrar que es una copia gestionada por este proyecto y siempre se guarda antes en el backup de la ejecución.
+### Instrucciones globales
 
-Después valida el Python del plugin, consulta `hermes plugins -h` para adaptar el flujo a los subcomandos realmente disponibles y prueba discovery/enable sin asumir una versión concreta:
+Con `-UpdateGlobalAgents` se actualiza el bloque administrado dentro de:
 
 ```text
-hermes plugins enable sabas-secure-development
-HERMES_PLUGINS_DEBUG=1 hermes plugins list
-hermes config set agent.verify_on_stop auto
-hermes config set agent.coding_instructions <reglas-Sabas>
+$CODEX_HOME/AGENTS.md
 ```
 
-Se intenta `enable` antes de exigir que aparezca en `plugins list` porque algunas versiones antiguas no enumeran de la misma forma plugins todavía no activados. Si `enable` falla pero discovery ya ve el plugin, se reintenta una vez. Si un candidato de ruta falla y no existía previamente, la copia temporal se retira para no dejar plugins huérfanos.
+Cuando existe un `AGENTS.override.md` efectivo, el instalador V0.5.4 mantiene también allí el gate para que el override no lo desactive accidentalmente.
 
-Si la versión instalada no descubre o no puede cargar el plugin, V0.5.4 **no aborta a mitad**: conserva las skills principales, intenta completar las skills externas solicitadas y marca la integración Hermes como `DEGRADED`. Los fallos externos de red/upstream también se aíslan y se muestran como `External defensive skills: FAILED` en vez de ocultarse. El instalador guarda `hermes-plugin-diagnostic.txt` dentro de su carpeta de backup con versión, capacidades CLI, rutas probadas y salida de discovery, sin leer `.env`, claves ni contenido de `config.yaml`.
+### Stop Hook
 
-Si el comando `hermes` no está en `PATH`, los archivos se copian pero aparecerá una advertencia. Cuando Hermes esté disponible, ejecuta:
+Con `-InstallCompletionHook`:
 
 ```text
-hermes plugins enable sabas-secure-development
-hermes config set agent.verify_on_stop auto
+$CODEX_HOME/hooks/sabas_secure_stop.py
+$CODEX_HOME/hooks.json
 ```
 
-## usuario-torpe-qa
+Codex mostrará un aviso porque los hooks pueden ejecutarse fuera del sandbox. Eso es correcto: revisa siempre el comando antes de confiar.
 
-Se gestiona por separado en cada agente seleccionado.
+El setup portable añade dos controles:
 
-- Si ya existe `usuario-torpe-qa/SKILL.md`, se preserva íntegro.
-- Solo se completan referencias/plantillas que falten.
-- Si no existe, se instala la copia completa incluida en el repositorio.
-- Su confirmación de seguridad original sigue siendo obligatoria antes de pruebas destructivas.
+- `hooks.json` se reescribe como UTF-8 **sin BOM**, evitando el error `expected value at line 1 column 1` observado con un JSON creado por Windows PowerShell 5.1;
+- el SHA-256 del hook instalado debe coincidir con `scripts/SabasSecureStopHook.py` del bundle.
 
-## Skills externas
-
-`-InstallExternalSkills` descarga únicamente un allowlist fijado en `EXTERNAL-SKILLS.lock.json`.
-
-Fuente fijada:
+Después de instalar:
 
 ```text
-https://github.com/mukul975/Anthropic-Cybersecurity-Skills.git
+/skills
+/hooks
 ```
 
-Commit fijado:
+Comprueba que el hook apunta a:
 
 ```text
-f76261573a539ec40c3d434ecbb9e657d26aa921
+$CODEX_HOME/hooks/sabas_secure_stop.py
 ```
+
+## 6. Hermes Agent
+
+El motor V0.5.4 mantiene su resolución adaptativa del home mediante:
+
+- `hermes config path`;
+- `HERMES_HOME`;
+- discovery con `HERMES_PLUGINS_DEBUG`;
+- `%LOCALAPPDATA%\hermes` en Windows;
+- fallback histórico `~/.hermes`.
+
+Instala:
+
+```text
+<HERMES_HOME efectivo>/
+├── skills/
+│   ├── sabas-efficient-development/
+│   ├── sabas-secure-qa/
+│   ├── sabas-threat-model/
+│   ├── sabas-security-bootstrap/
+│   └── usuario-torpe-qa/
+└── plugins/
+    └── sabas-secure-development/
+```
+
+Verifica:
+
+```powershell
+hermes plugins list --plain --no-bundled
+```
+
+y, cuando lo soporte tu versión:
+
+```powershell
+hermes config get agent.verify_on_stop
+```
+
+La integración puede quedar `DEGRADED` si una versión concreta de Hermes no carga el plugin; las skills siguen instalándose.
+
+## 7. Google Antigravity IDE
+
+La documentación oficial actual de Antigravity usa:
+
+```text
+~/.gemini/config/skills/<skill-folder>/SKILL.md
+```
+
+para skills globales y:
+
+```text
+<workspace>/.agents/skills/<skill-folder>/SKILL.md
+```
+
+para skills del proyecto.
+
+El setup instala globalmente:
+
+```text
+~/.gemini/config/skills/
+├── sabas-efficient-development/
+├── sabas-secure-qa/
+├── sabas-threat-model/
+├── sabas-security-bootstrap/
+└── usuario-torpe-qa/
+```
+
+Antigravity aplica divulgación progresiva: al iniciar una conversación conoce nombre/descripción de las skills y carga el contenido completo cuando una resulta relevante.
+
+Esta integración no instala el Stop Hook de Codex ni el plugin de Hermes.
+
+Consulta [ANTIGRAVITY.md](ANTIGRAVITY.md) para detalles y la diferencia con Antigravity CLI.
+
+## 8. usuario-torpe-qa
+
+La política es conservadora:
+
+- si ya existe `usuario-torpe-qa/SKILL.md`, se preserva;
+- el motor Codex/Hermes V0.5.4 puede completar referencias auxiliares faltantes;
+- Antigravity no sobrescribe una copia existente de procedencia distinta;
+- ninguna instalación autoriza por sí misma pruebas destructivas.
+
+## 9. Skills defensivas externas
+
+`-InstallExternalSkills` se mantiene para Codex/Hermes.
+
+El origen y commit se encuentran fijados en `EXTERNAL-SKILLS.lock.json`. No se instala el catálogo ofensivo completo.
 
 Perfiles:
 
-- `web`: 10 skills.
-- `api`: web + 5 API.
-- `devsecops`: web + 5 DevSecOps.
-- `all`: 20 skills defensivas.
+- `web`;
+- `api`;
+- `devsecops`;
+- `all`.
 
-Cuando usas `-Target Both`, el repositorio externo se clona una sola vez y las skills validadas se copian a ambos árboles.
+Para Antigravity el setup portable no copia automáticamente estas skills externas. Primero deben revisarse para ese runtime.
 
-No se instalan automáticamente skills de explotación, evasión, post-explotación, C2, cracking o bypass ofensivo.
-
-## Pruebas del paquete
+## 10. Autopruebas
 
 Ejecuta:
 
@@ -191,65 +307,48 @@ Ejecuta:
 .\Test-SabasSecureDev.ps1
 ```
 
-El instalador también ejecuta esta batería ligera al final. El workflow de GitHub añade en `windows-latest` una prueba de instalación Hermes aislada con CLI simulada, para detectar regresiones de PowerShell, discovery y enable antes de publicar cambios.
+La batería valida tanto el núcleo existente como la capa portable:
 
-## Verificar Codex
+- manifiesto e integridad;
+- plugin Hermes;
+- fingerprints;
+- regresiones de discovery Windows;
+- ruta oficial de Antigravity;
+- setup/actualizador;
+- presencia de la reparación UTF-8 sin BOM;
+- documentación básica de la skill eficiente.
 
-Recarga VS Code/Codex y revisa:
+## 11. Backups
 
-```text
-/skills
-/hooks
-```
+Las instalaciones existentes se conservan antes de reemplazarlas.
 
-Debes encontrar al menos:
-
-```text
-sabas-secure-qa
-sabas-threat-model
-sabas-security-bootstrap
-usuario-torpe-qa
-```
-
-## Verificar Hermes
-
-Reinicia Hermes y ejecuta:
-
-```powershell
-hermes plugins list --plain --no-bundled
-```
-
-Debe aparecer `sabas-secure-development` con estado `enabled`. Esta vista compacta es la comprobación recomendada por V0.5.4 porque no depende del ancho de la tabla gráfica. Después puedes ejecutar también:
+El motor V0.5.4 usa:
 
 ```text
-hermes plugins list
-hermes config get agent.verify_on_stop
+~/.sabas-secure-development/backups/<fecha>/
 ```
 
-El plugin `sabas-secure-development` debe estar habilitado y `verify_on_stop` debe resolver a `auto`.
-
-## Publicar el repositorio
-
-Si tienes GitHub CLI autenticado:
-
-```powershell
-.\Publish-To-GitHub.ps1
-```
-
-El script crea por defecto:
+El wrapper portable añade:
 
 ```text
-<tu-usuario>/sabas-secure-development
+~/.sabas-secure-development/backups/portable-<fecha>/
 ```
 
-como repositorio privado y publica el contenido controlado del bundle. No utiliza ni imprime tu token.
+## 12. Instalador V0.5.4 directo
 
-### Actualización desde V0.5/V0.5.1 con instalación Hermes parcial
+`scripts/Install-SabasSecureDev.ps1` sigue disponible para compatibilidad y para las pruebas existentes de Codex/Hermes.
 
-No hace falta desinstalar. V0.5/V0.5.1 ya pueden haber copiado skills y plugin antes de detenerse. Ejecuta V0.5.4 sobre la misma instalación: hará backup, detectará el home/perfil mediante config + discovery, probará ambos layouts Windows conocidos si hace falta, volverá a copiar los componentes en el destino confirmado y continuará aunque una capa opcional quede degradada.
+Para nuevas instalaciones se recomienda **`Setup-SabasSecureDev.ps1`**, porque además:
 
-Para diagnóstico manual:
+- incluye `sabas-efficient-development`;
+- soporta Antigravity IDE;
+- repara el BOM de `hooks.json`;
+- verifica el hash del hook.
+
+## 13. Diagnóstico Hermes
 
 ```powershell
 .\Diagnose-Hermes.ps1
 ```
+
+Muestra versión, perfil, ruta efectiva y discovery sin leer `.env`, claves o contenido de configuración sensible.
