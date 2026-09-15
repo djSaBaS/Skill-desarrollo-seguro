@@ -55,7 +55,26 @@ El núcleo es un único `SKILL.md` basado en el estándar abierto Agent Skills y
 - Hermes Agent;
 - ChatGPT Skills cuando esté disponible en la cuenta.
 
-## Instalación en Codex
+## Instalación recomendada desde este repositorio
+
+Para que la misma versión quede coordinada con el resto del bundle usa el setup portable:
+
+```powershell
+cd scripts
+
+# Codex
+.\Setup-SabasSecureDev.ps1 -Target Codex
+
+# Hermes
+.\Setup-SabasSecureDev.ps1 -Target Hermes
+
+# Google Antigravity IDE
+.\Setup-SabasSecureDev.ps1 -Target Antigravity
+```
+
+El setup conserva backups antes de sustituir una copia Sabas existente.
+
+## Instalación manual en Codex
 
 ### Windows PowerShell
 
@@ -76,16 +95,24 @@ curl -fsSL \
   -o ~/.agents/skills/sabas-efficient-development/SKILL.md
 ```
 
-Después inicia una sesión nueva de Codex o recarga el entorno para que vuelva a descubrir las skills.
-
 ## Instalación en Google Antigravity IDE
 
-Antigravity usa también Agent Skills y descubre skills en `.agents/skills/` dentro del proyecto o en la carpeta global del usuario.
+Antigravity IDE descubre skills globales en:
+
+```text
+~/.gemini/config/skills/<skill-folder>/SKILL.md
+```
+
+y skills del workspace en:
+
+```text
+<workspace>/.agents/skills/<skill-folder>/SKILL.md
+```
 
 ### Global para todos tus proyectos — Windows PowerShell
 
 ```powershell
-$SkillDir = Join-Path $HOME '.gemini\antigravity\skills\sabas-efficient-development'
+$SkillDir = Join-Path $HOME '.gemini\config\skills\sabas-efficient-development'
 New-Item -ItemType Directory -Force -Path $SkillDir | Out-Null
 Invoke-WebRequest `
     -Uri 'https://raw.githubusercontent.com/djSaBaS/Skill-desarrollo-seguro/main/skills/sabas-efficient-development/SKILL.md' `
@@ -95,25 +122,17 @@ Invoke-WebRequest `
 ### Global para todos tus proyectos — Linux / macOS
 
 ```bash
-mkdir -p ~/.gemini/antigravity/skills/sabas-efficient-development
+mkdir -p ~/.gemini/config/skills/sabas-efficient-development
 curl -fsSL \
   https://raw.githubusercontent.com/djSaBaS/Skill-desarrollo-seguro/main/skills/sabas-efficient-development/SKILL.md \
-  -o ~/.gemini/antigravity/skills/sabas-efficient-development/SKILL.md
+  -o ~/.gemini/config/skills/sabas-efficient-development/SKILL.md
 ```
 
-### Solo para un proyecto
+Antigravity usa divulgación progresiva: inicialmente conoce el nombre y la descripción de la skill y carga su cuerpo completo cuando resulta relevante.
 
-Instálala dentro del repositorio:
+Antigravity CLI mantiene un árbol global diferente (`~/.gemini/antigravity-cli/skills/`). Para compartir una skill entre IDE y CLI, la opción más portable es mantenerla dentro del workspace en `.agents/skills/`.
 
-```text
-<proyecto>/
-└── .agents/
-    └── skills/
-        └── sabas-efficient-development/
-            └── SKILL.md
-```
-
-Antigravity indexa primero el nombre y la descripción y carga el cuerpo completo de la skill cuando resulta relevante. También puedes invocarla explícitamente por nombre si quieres forzar su uso.
+Consulta `../../ANTIGRAVITY.md` para la integración completa del bundle.
 
 ## Instalación en Hermes Agent
 
@@ -127,43 +146,24 @@ Comprueba después:
 hermes skills list
 ```
 
-En una sesión ya abierta puede ser necesario iniciar una nueva sesión para regenerar el listado.
+## Actualización portable
 
-## Uso en ChatGPT web
-
-Cuando tu cuenta/espacio de trabajo tenga habilitadas las Skills:
-
-1. Abre `Plugins`.
-2. Entra en `Skills`.
-3. Selecciona `Crear`.
-4. Elige `Cargar desde tu computadora`.
-5. Descarga y carga el `SKILL.md` de esta carpeta.
-
-La disponibilidad depende del plan, workspace e interfaz.
-
-## Actualización
-
-Codex, Windows:
+Para actualizar desde el repositorio oficial:
 
 ```powershell
-Invoke-WebRequest `
-    -Uri 'https://raw.githubusercontent.com/djSaBaS/Skill-desarrollo-seguro/main/skills/sabas-efficient-development/SKILL.md' `
-    -OutFile (Join-Path $HOME '.agents\skills\sabas-efficient-development\SKILL.md')
+cd scripts
+
+# Codex
+.\Update-SabasSecureDev.ps1 -Target Codex
+
+# Hermes
+.\Update-SabasSecureDev.ps1 -Target Hermes
+
+# Antigravity IDE
+.\Update-SabasSecureDev.ps1 -Target Antigravity
 ```
 
-Antigravity IDE, Windows:
-
-```powershell
-Invoke-WebRequest `
-    -Uri 'https://raw.githubusercontent.com/djSaBaS/Skill-desarrollo-seguro/main/skills/sabas-efficient-development/SKILL.md' `
-    -OutFile (Join-Path $HOME '.gemini\antigravity\skills\sabas-efficient-development\SKILL.md')
-```
-
-Hermes:
-
-```bash
-hermes skills update sabas-efficient-development
-```
+El actualizador descarga el bundle público, lo valida y ejecuta el setup en modo `Update`.
 
 ## Qué no puede garantizar
 
