@@ -104,7 +104,8 @@ Para Codex/Hermes:
 2. instala/actualiza también `sabas-efficient-development`;
 3. conserva backups antes de reemplazar la copia anterior;
 4. en Codex, normaliza `hooks.json` a UTF-8 sin BOM;
-5. en Codex, compara por SHA-256 `sabas_secure_stop.py` instalado contra la copia auditada del bundle.
+5. en Codex, compara por SHA-256 `sabas_secure_stop.py` instalado contra la copia auditada del bundle;
+6. en Hermes, vuelve a contrastar `hermes config path`, `HERMES_HOME` y `HERMES_PLUGINS_DEBUG` para que `sabas-efficient-development` termine en el mismo home que el runtime realmente escanea.
 
 Para Antigravity:
 
@@ -150,7 +151,53 @@ Puedes indicar otra referencia pública:
 .\Update-SabasSecureDev.ps1 -Target Codex -Ref main
 ```
 
-## 5. Codex
+## 5. Desinstalación segura
+
+El desinstalador distribuido cubre Codex, Hermes y Antigravity y elimina las cuatro skills propias del bundle, incluida `sabas-efficient-development`.
+
+### Codex
+
+```powershell
+.\Uninstall-SabasSecureDev.ps1 `
+    -Target Codex `
+    -RemoveGlobalAgentsBlock `
+    -RemoveCompletionHook
+```
+
+### Hermes
+
+```powershell
+.\Uninstall-SabasSecureDev.ps1 -Target Hermes
+```
+
+### Antigravity
+
+```powershell
+.\Uninstall-SabasSecureDev.ps1 -Target Antigravity
+```
+
+### Todos
+
+```powershell
+.\Uninstall-SabasSecureDev.ps1 `
+    -Target All `
+    -RemoveGlobalAgentsBlock `
+    -RemoveCompletionHook
+```
+
+`Both` se mantiene por compatibilidad con versiones anteriores y equivale a Codex + Hermes. `All` incluye Codex + Hermes + Antigravity.
+
+La desinstalación es conservadora:
+
+- crea backup antes de retirar componentes propios;
+- elimina `sabas-efficient-development`, `sabas-secure-qa`, `sabas-threat-model` y `sabas-security-bootstrap` del destino seleccionado;
+- no elimina skills defensivas externas;
+- solo elimina `usuario-torpe-qa` con `-RemoveBundledUsuarioTorpe` y cuando existe su marcador de propiedad;
+- en Codex, `-RemoveCompletionHook` filtra únicamente la entrada Sabas de `hooks.json` y conserva hooks ajenos;
+- `hooks.json` se lee como bytes con UTF-8 estricto y se escribe como UTF-8 sin BOM, evitando corrupción de caracteres no ASCII en Windows PowerShell 5.1;
+- en Hermes, el home se resuelve con la misma prioridad de evidencia que el instalador, dejando que discovery real gane sobre rutas stale.
+
+## 6. Codex
 
 ### Skills
 
@@ -204,7 +251,7 @@ Comprueba que el hook apunta a:
 $CODEX_HOME/hooks/sabas_secure_stop.py
 ```
 
-## 6. Hermes Agent
+## 7. Hermes Agent
 
 El motor V0.5.4 mantiene su resolución adaptativa del home mediante:
 
@@ -213,6 +260,8 @@ El motor V0.5.4 mantiene su resolución adaptativa del home mediante:
 - discovery con `HERMES_PLUGINS_DEBUG`;
 - `%LOCALAPPDATA%\hermes` en Windows;
 - fallback histórico `~/.hermes`.
+
+El setup portable reutiliza esas mismas señales después del instalador core y no considera `hermes config path` definitivo cuando `HERMES_PLUGINS_DEBUG` demuestra que el runtime está escaneando otro home.
 
 Instala:
 
@@ -242,7 +291,7 @@ hermes config get agent.verify_on_stop
 
 La integración puede quedar `DEGRADED` si una versión concreta de Hermes no carga el plugin; las skills siguen instalándose.
 
-## 7. Google Antigravity IDE
+## 8. Google Antigravity IDE
 
 La documentación oficial actual de Antigravity usa:
 
@@ -275,7 +324,7 @@ Esta integración no instala el Stop Hook de Codex ni el plugin de Hermes.
 
 Consulta [ANTIGRAVITY.md](ANTIGRAVITY.md) para detalles y la diferencia con Antigravity CLI.
 
-## 8. usuario-torpe-qa
+## 9. usuario-torpe-qa
 
 La política es conservadora:
 
@@ -284,7 +333,7 @@ La política es conservadora:
 - Antigravity no sobrescribe una copia existente de procedencia distinta;
 - ninguna instalación autoriza por sí misma pruebas destructivas.
 
-## 9. Skills defensivas externas
+## 10. Skills defensivas externas
 
 `-InstallExternalSkills` se mantiene para Codex/Hermes.
 
@@ -299,7 +348,7 @@ Perfiles:
 
 Para Antigravity el setup portable no copia automáticamente estas skills externas. Primero deben revisarse para ese runtime.
 
-## 10. Autopruebas
+## 11. Autopruebas
 
 Ejecuta:
 
@@ -314,11 +363,16 @@ La batería valida tanto el núcleo existente como la capa portable:
 - fingerprints;
 - regresiones de discovery Windows;
 - ruta oficial de Antigravity;
-- setup/actualizador;
+- setup/actualizador/desinstalador;
 - presencia de la reparación UTF-8 sin BOM;
 - documentación básica de la skill eficiente.
 
-## 11. Backups
+GitHub Actions añade dos pruebas reales sobre Windows PowerShell 5.1:
+
+- `Invoke-HermesInstallerSmoke.ps1`, que fuerza una discrepancia entre `hermes config path` y el home confirmado por `HERMES_PLUGINS_DEBUG` y exige que la skill eficiente siga el home de discovery;
+- `Invoke-UninstallerSmoke.ps1`, que valida `-Target All`, la retirada de `sabas-efficient-development` en los tres runtimes y la preservación de un hook ajeno con caracteres Unicode en `hooks.json` sin reintroducir BOM.
+
+## 12. Backups
 
 Las instalaciones existentes se conservan antes de reemplazarlas.
 
@@ -334,7 +388,13 @@ El wrapper portable añade:
 ~/.sabas-secure-development/backups/portable-<fecha>/
 ```
 
-## 12. Instalador V0.5.4 directo
+El desinstalador usa:
+
+```text
+~/.sabas-secure-development/backups/uninstall-<fecha>/
+```
+
+## 13. Instalador V0.5.4 directo
 
 `scripts/Install-SabasSecureDev.ps1` sigue disponible para compatibilidad y para las pruebas existentes de Codex/Hermes.
 
@@ -345,7 +405,7 @@ Para nuevas instalaciones se recomienda **`Setup-SabasSecureDev.ps1`**, porque a
 - repara el BOM de `hooks.json`;
 - verifica el hash del hook.
 
-## 13. Diagnóstico Hermes
+## 14. Diagnóstico Hermes
 
 ```powershell
 .\Diagnose-Hermes.ps1
