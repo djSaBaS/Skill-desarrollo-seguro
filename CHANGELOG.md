@@ -1,5 +1,20 @@
 # Changelog
 
+## Bundle update 2026-09-15 — Sabas Efficient Development V0.2.0 + Antigravity
+
+- Añade `sabas-efficient-development` V0.2.0 con **Scope Compiler** para convertir peticiones amplias en lotes pequeños y verificables antes de usar herramientas.
+- Reutiliza hallazgos existentes de SonarQube, CI, tests, linters y revisiones, evitando por defecto scans completos duplicados, subagentes paralelos, procesos largos en segundo plano y suites globales prematuras.
+- Añade soporte portable para **Google Antigravity IDE** mediante Agent Skills en la ruta global oficial `~/.gemini/config/skills/` y `.agents/skills/` por workspace.
+- Añade `scripts/Setup-SabasSecureDev.ps1` como nuevo entrypoint recomendado para instalar/actualizar Codex, Hermes, Antigravity o los tres destinos.
+- Añade `scripts/Update-SabasSecureDev.ps1` para descargar una referencia pública del repositorio oficial y ejecutar el setup en modo `Update` desde una carpeta temporal.
+- Mantiene `Install-SabasSecureDev.ps1` como motor probado de Codex/Hermes para conservar discovery, backups, plugin Hermes, skills externas y gates V0.5.4.
+- El setup portable instala también `sabas-efficient-development` en Codex y en el home efectivo de Hermes.
+- Corrige la incompatibilidad observada entre Windows PowerShell 5.1 y Codex: `hooks.json` se normaliza a UTF-8 **sin BOM** después de la instalación para evitar `expected value at line 1 column 1`.
+- Verifica por SHA-256 que `sabas_secure_stop.py` instalado en Codex sea byte a byte idéntico a la copia auditada incluida en el bundle.
+- Añade autopruebas para impedir reintroducir la ruta antigua de Antigravity, perder la reparación UTF-8 sin BOM o romper el actualizador portable.
+- Añade `ANTIGRAVITY.md` y actualiza README, INSTALL, VSCODE, SECURITY y la documentación propia de `sabas-efficient-development`.
+- La integración Antigravity es deliberadamente declarativa: instala Agent Skills, pero no instala el Stop Hook de Codex, el plugin de Hermes, MCPs ni hooks adicionales.
+
 ## V0.5.4
 
 - Corrige el falso estado `DEGRADED` observado con Hermes Agent v0.20.0: la tabla Rich de `hermes plugins list` puede truncar `sabas-secure-development` como `sabas-secure-devel…` aunque el plugin esté realmente `enabled`.
