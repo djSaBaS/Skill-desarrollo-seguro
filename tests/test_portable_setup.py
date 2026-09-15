@@ -16,6 +16,12 @@ assert ".gemini\\antigravity\\skills" not in setup
 assert "sabas-efficient-development" in setup
 # Exige que hooks.json se reescriba explícitamente como UTF-8 sin BOM.
 assert "System.Text.UTF8Encoding($false)" in setup
+# Exige un decodificador UTF-8 estricto para no depender de la code page de Windows PowerShell 5.1.
+assert "System.Text.UTF8Encoding($false, $true)" in setup
+# Exige lectura binaria antes de decodificar hooks.json.
+assert "System.IO.File]::ReadAllBytes($HooksFile)" in setup
+# Impide volver a leer hooks.json con Get-Content, que interpreta UTF-8 sin BOM como ANSI en Windows PowerShell 5.1.
+assert "Get-Content -Raw -Path $HooksFile" not in setup
 # Exige escritura .NET que evita el BOM de Windows PowerShell 5.1.
 assert "System.IO.File]::WriteAllText" in setup
 # Exige verificación SHA-256 del hook instalado.
@@ -23,6 +29,15 @@ assert "Get-FileHash -Algorithm SHA256" in setup
 # Exige soporte explícito de los cuatro destinos.
 for target in ("Codex", "Hermes", "Antigravity", "All"):
     assert target in setup
+
+# Aísla la resolución de Hermes para validar el orden de fuentes sin depender de otras menciones del entorno.
+hermes_resolver = setup[
+    setup.index("function Resolve-SabasHermesSkillsTarget") : setup.index("function Repair-SabasCodexHooksEncoding")
+]
+# Exige consultar primero el perfil efectivo que declara la CLI de Hermes.
+assert hermes_resolver.index("hermes config path") < hermes_resolver.index("$env:HERMES_HOME")
+# Exige que una ruta efectiva de CLI gane frente a homes heredados o variables stale.
+assert "return $CliSkillsTarget" in hermes_resolver
 
 # Lee el actualizador remoto.
 updater = (root / "scripts" / "Update-SabasSecureDev.ps1").read_text(encoding="utf-8-sig")
