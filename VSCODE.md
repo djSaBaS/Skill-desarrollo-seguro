@@ -1,53 +1,132 @@
 # Uso con Codex en VS Code
 
-Las skills instaladas en `$HOME/.agents/skills` están pensadas para ser visibles desde Codex IDE además de Codex CLI. La extensión IDE no usa el sistema de plugins, por lo que para VS Code debes ejecutar el instalador PowerShell de este paquete, que copia las skills directamente a esa ubicación personal.
+Sabas Secure Development se instala en Codex IDE/VS Code mediante Agent Skills globales y, opcionalmente, un bloque administrado de instrucciones y un Stop Hook de finalización.
+
+La vía recomendada desde esta actualización es `Setup-SabasSecureDev.ps1`; el instalador V0.5.4 original permanece como motor interno y compatibilidad heredada.
 
 ## Instalación recomendada
 
-Desde la carpeta `scripts` del paquete:
+Desde `scripts`:
 
 ```powershell
-./Install-SabasSecureDev.ps1 -Target Codex -UpdateGlobalAgents -InstallExternalSkills -ExternalProfile all -InstallCompletionHook
+.\Setup-SabasSecureDev.ps1 `
+    -Target Codex `
+    -UpdateGlobalAgents `
+    -InstallCompletionHook
 ```
 
-El perfil `all` instala solo las 20 skills defensivas allowlisted y fijadas a commit, no el catálogo completo. El instalador valida el bundle antes de tocar tu configuración y preserva una versión ya existente de `usuario-torpe-qa`.
+Para añadir las skills defensivas externas allowlisted:
+
+```powershell
+.\Setup-SabasSecureDev.ps1 `
+    -Target Codex `
+    -InstallExternalSkills `
+    -ExternalProfile all `
+    -UpdateGlobalAgents `
+    -InstallCompletionHook
+```
+
+El setup instala también `sabas-efficient-development`, por lo que Codex puede acotar prompts amplios antes de explorar el repositorio.
+
+## Actualización
+
+Desde una copia ya instalada del repositorio:
+
+```powershell
+.\Update-SabasSecureDev.ps1 `
+    -Target Codex `
+    -UpdateGlobalAgents `
+    -InstallCompletionHook
+```
+
+El actualizador descarga `main` del repositorio oficial por defecto, ejecuta el setup en modo `Update` y conserva backups antes de sustituir componentes.
+
+## Árbol esperado
+
+```text
+~/.agents/skills/
+├── sabas-efficient-development/
+├── sabas-secure-qa/
+├── sabas-threat-model/
+├── sabas-security-bootstrap/
+└── usuario-torpe-qa/
+
+$CODEX_HOME/
+├── AGENTS.md                     # opcional
+├── AGENTS.override.md            # solo si ya existe y resulta aplicable
+├── hooks.json                    # cuando se instala el Stop Hook
+└── hooks/
+    └── sabas_secure_stop.py
+```
+
+## Scope Compiler y consumo
+
+`sabas-efficient-development` evita interpretar una orden genérica como permiso para hacer trabajo ilimitado. Por ejemplo, `corrige los errores de Sonar` debe reutilizar los hallazgos existentes y trabajar por un lote pequeño y verificable antes de continuar.
+
+Por defecto evita `deep scan` completo, scans duplicados, subagentes paralelos, procesos largos en segundo plano y suites globales prematuras. Si el problema exige ampliar el alcance, el agente debe justificarlo.
+
+La capa de eficiencia no puede omitir tests, migraciones o gates de seguridad que sean realmente obligatorios.
+
+## Stop Hook de Codex
+
+Con `-InstallCompletionHook`, Codex registra un hook `Stop` que ejecuta:
+
+```text
+$CODEX_HOME/hooks/sabas_secure_stop.py
+```
+
+Codex muestra un aviso de confianza porque un hook puede ejecutarse fuera del sandbox. Ese aviso es correcto y debe respetarse: revisa el comando antes de confiarlo.
+
+El hook Sabas incluido en este repositorio:
+
+- recibe el evento de Codex por `stdin`;
+- ejecuta únicamente el clasificador local `security_context.py` del bundle;
+- no usa `shell=True`;
+- no descarga contenido de Internet;
+- no modifica el proyecto;
+- aplica timeout;
+- evita ciclos mediante el estado del hook;
+- puede pedir una continuación cuando falta un recibo de seguridad válido para el cambio actual.
+
+El setup portable compara por SHA-256 el hook instalado con la copia auditada del bundle. Si no coinciden, la instalación falla antes de considerarlo válido.
+
+## `hooks.json` y Windows PowerShell 5.1
+
+Se detectó una incompatibilidad real: `Set-Content -Encoding utf8` en Windows PowerShell 5.1 puede escribir BOM (`EF BB BF`), mientras que el parser actual de Codex espera que el JSON empiece directamente por `{`.
+
+Después de ejecutar el instalador V0.5.4, el setup portable vuelve a validar `hooks.json` y lo reescribe en UTF-8 sin BOM mediante .NET. No cambia su estructura JSON ni elimina hooks ajenos.
+
+Si quieres comprobarlo manualmente:
+
+```powershell
+$HooksFile = Join-Path $HOME '.codex\hooks.json'
+$Bytes = [System.IO.File]::ReadAllBytes($HooksFile)
+($Bytes[0..7] | ForEach-Object { $_.ToString('X2') }) -join ' '
+```
+
+Debe empezar por `7B`, no por `EF BB BF`.
+
+## Verificación en Codex
+
+Después de instalar o actualizar, recarga VS Code/Codex y revisa:
+
+```text
+/skills
+/hooks
+```
+
+En `/skills` deben aparecer las skills Sabas instaladas. En `/hooks`, revisa que el comando del Stop Hook apunte a `sabas_secure_stop.py` dentro de tu `$CODEX_HOME` antes de marcarlo como confiable.
 
 ## Flujo diario recomendado
 
-1. Trabaja normalmente con Codex en el repositorio.
-2. Mantén el bloque de `AGENTS.md` global activo para que la seguridad forme parte del criterio de cierre; si usas `AGENTS.override.md`, el instalador conserva el gate también allí.
-3. Para cambios normales, deja que `sabas-secure-qa` seleccione automáticamente `FAST`, `STANDARD` o `DEEP`.
-4. Para autenticación, permisos, paneles administrativos, uploads, APIs, datos sensibles, pagos, secretos, webhooks o cambios de CI, el orquestador debe escalar a `DEEP` o `RELEASE`.
-5. Antes de producción, pide explícitamente modo `RELEASE`.
-6. Cuando exista una aplicación ejecutable en local/staging, permite `usuario-torpe-qa` únicamente después de confirmar que el entorno está controlado.
+1. Usa `sabas-efficient-development` para mantener el alcance pequeño y reutilizar evidencia ya disponible.
+2. Deja que `sabas-secure-qa` clasifique el riesgo real del cambio.
+3. Para cambios normales, prioriza revisión y pruebas enfocadas en el diff.
+4. Reserva `DEEP`/`RELEASE` y scans amplios para riesgo alto real, release o petición explícita.
+5. Ejecuta `usuario-torpe-qa` solo en local/sandbox/staging autorizado.
 
-## Invocaciones útiles
+## Codex Security oficial
 
-```text
-$sabas-security-bootstrap Analiza este repositorio y prepara su baseline de seguridad.
-```
+Cuando Codex exponga su capa oficial de seguridad, `sabas-secure-qa` puede usarla como evidencia adicional según riesgo. No debe repetir automáticamente un scan completo si ya existe evidencia suficiente para una remediación localizada.
 
-```text
-$sabas-threat-model Crea o actualiza el modelo de amenazas de este proyecto.
-```
-
-```text
-$sabas-secure-qa Revisa el diff actual y corrige los problemas bloqueantes.
-```
-
-```text
-$sabas-secure-qa Modo RELEASE: valida este proyecto antes de desplegarlo.
-```
-
-## Importante
-
-El orquestador no debe interpretar que la ausencia de una herramienta equivale a un resultado limpio. Si no puede ejecutar un scanner o una prueba dinámica, el informe debe decir `NOT VERIFIED` y continuar con el mejor análisis disponible.
-
-
-## Guardrail de cierre
-
-Si instalaste `-InstallCompletionHook`, Codex evalúa un hook `Stop`. Cuando el clasificador detecta un cambio R2/R3/R4 y el último mensaje no contiene un veredicto de `sabas-secure-qa` junto a `SABAS_SECURITY_FINGERPRINT` coincidente con el estado actual, el hook pide una única continuación para ejecutar el gate. Un cambio posterior invalida la huella anterior. Revisa/confía el hook con `/hooks`.
-
-## Codex Security oficial y VS Code
-
-El orquestador detecta esa capa cuando la superficie actual la expone. No la presupone: en una sesión IDE donde no esté accesible, la revisión continúa mediante las skills personales, herramientas del repositorio y `usuario-torpe-qa`. Para scans oficiales más amplios puedes abrir el mismo repositorio en Codex Desktop/CLI y ejecutar la capa Codex Security allí.
+La ausencia de una herramienta nunca equivale a un resultado limpio: cualquier verificación no ejecutada debe quedar como `NOT VERIFIED` cuando sea relevante.
