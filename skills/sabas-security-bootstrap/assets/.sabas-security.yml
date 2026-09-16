@@ -1,0 +1,19 @@
+version: 1
+
+project:
+  threat_model: SECURITY-THREAT-MODEL.md
+  risk_acceptance: SECURITY-RISK-ACCEPTANCE.md
+
+review:
+  risk_mode: auto
+  release_mode: RELEASE
+  reuse_fresh_evidence: true
+  prefer_targeted_verification: true
+
+security_fixes:
+  require_regression_proof_when_practical: true
+  require_state_fingerprint: true
+
+dynamic_testing:
+  destructive_tests_allowed: false
+  require_authorized_non_production_target: true

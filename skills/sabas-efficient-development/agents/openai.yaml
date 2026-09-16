@@ -1,0 +1,6 @@
+interface:
+  display_name: "Sabas Efficient Development"
+  short_description: "Bounded, evidence-first coding workflow"
+  default_prompt: "Narrow broad coding requests into the smallest verifiable batch, reuse existing diagnostics, avoid duplicate scans and background agents, test the affected surface first, and expand scope only when evidence requires it."
+policy:
+  allow_implicit_invocation: true

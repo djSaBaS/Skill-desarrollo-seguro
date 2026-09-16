@@ -1,0 +1,59 @@
+name: Validate Sabas Secure Development
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  linux:
+    name: Linux bundle validation
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+      - name: Report portable component hashes
+        shell: bash
+        run: |
+          sha256sum \
+            .github/workflows/validate.yml \
+            README.md \
+            INSTALL.md \
+            ANTIGRAVITY.md \
+            SECURITY.md \
+            VSCODE.md \
+            CHANGELOG.md \
+            scripts/Setup-SabasSecureDev.ps1 \
+            scripts/Uninstall-SabasSecureDev.ps1 \
+            tests/Invoke-HermesInstallerSmoke.ps1 \
+            tests/Invoke-UninstallerSmoke.ps1 \
+            tests/test_portable_setup.py
+      - name: Configure Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.12"
+      - name: Run portable self-test
+        shell: pwsh
+        run: ./scripts/Test-SabasSecureDev.ps1
+
+  windows:
+    name: Windows PowerShell validation
+    runs-on: windows-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@fbc6f3992d24b796d5a048ff273f7fcc4a7b6c09
+      - name: Configure Python
+        uses: actions/setup-python@ece7cb06caefa5fff74198d8649806c4678c61a1
+        with:
+          python-version: "3.12"
+      - name: Run bundle self-test
+        shell: powershell
+        run: .\scripts\Test-SabasSecureDev.ps1
+      - name: Run Hermes installer smoke test
+        shell: powershell
+        run: .\tests\Invoke-HermesInstallerSmoke.ps1
+      - name: Run portable uninstaller smoke test
+        shell: powershell
+        run: .\tests\Invoke-UninstallerSmoke.ps1
