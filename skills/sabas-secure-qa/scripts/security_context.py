@@ -31,7 +31,7 @@ HIGH_RISK_PATTERNS = {
     # Eleva cambios de limitación por IP/identidad y atribución de proxy.
     "rate_limiting": re.compile(r"rate[_ -]?limit|throttl|x-forwarded-for|trusted[_ -]?proxy", re.IGNORECASE),
     # Eleva políticas RLS y predicados de pertenencia de usuario/tenant.
-    "row_isolation": re.compile(r"row[_ -]?level[_ -]?(?:security|policy)|\brls\b|tenant_id|owner_id", re.IGNORECASE),
+    "row_isolation": re.compile(r"row[_ -]?level[_ -]?(?:security|policy)|(?:^|[^a-z])rls(?:$|[^a-z])|tenant_id|owner_id", re.IGNORECASE),
     "files": re.compile(r"upload|download|import|export|attachment|file", re.IGNORECASE),
     "external_effects": re.compile(r"webhook|payment|checkout|mail|email|sms|publish", re.IGNORECASE),
     "tokens": re.compile(r"jwt|oauth|oidc|saml|token", re.IGNORECASE),
