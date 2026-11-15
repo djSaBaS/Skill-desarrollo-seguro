@@ -31,7 +31,7 @@ HIGH_RISK_PATTERNS = {
     # Eleva cambios de limitación por IP/identidad y atribución de proxy.
     "rate_limiting": re.compile(r"rate[_ -]?limit|throttl|x-forwarded-for|trusted[_ -]?proxy", re.IGNORECASE),
     # Eleva políticas RLS y predicados de pertenencia de usuario/tenant.
-    "row_isolation": re.compile(r"row[_ -]?level[_ -]?(?:security|policy)|\\brls\\b|tenant_id|owner_id", re.IGNORECASE),
+    "row_isolation": re.compile(r"row[_ -]?level[_ -]?(?:security|policy)|\brls\b|tenant_id|owner_id", re.IGNORECASE),
     "files": re.compile(r"upload|download|import|export|attachment|file", re.IGNORECASE),
     "external_effects": re.compile(r"webhook|payment|checkout|mail|email|sms|publish", re.IGNORECASE),
     "tokens": re.compile(r"jwt|oauth|oidc|saml|token", re.IGNORECASE),
@@ -44,7 +44,7 @@ CRITICAL_RISK_PATTERNS = {
     "code_execution": re.compile(r"\beval\s*\(|\bexec\s*\(|shell_exec|system\s*\(|passthru\s*\(|proc_open|subprocess", re.IGNORECASE),
     "unsafe_deserialization": re.compile(r"\bunserialize\s*\(|pickle\.loads|yaml\.load\s*\(", re.IGNORECASE),
     # Detecta .env y sus variantes reales, pero no el ejemplo sin credenciales.
-    "secret_files": re.compile(r"(^|/)(\\.env(?!\\.example(?:/|$))(?:\\.[^/]*)?|wp-config\\.php|.*private.*key.*|.*secret.*)(/|$)", re.IGNORECASE),
+    "secret_files": re.compile(r"(^|/)(\.env(?!\.example(?:/|$))(?:\.[^/]*)?|wp-config\.php|.*private.*key.*|.*secret.*)(/|$)", re.IGNORECASE),
     "financial": re.compile(r"payment|checkout|balance|credit|invoice|refund|charge", re.IGNORECASE),
     "crypto": re.compile(r"encrypt|decrypt|cipher|private[_-]?key|signing[_-]?key|cryptograph", re.IGNORECASE),
 }
