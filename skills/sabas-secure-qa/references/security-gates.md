@@ -14,6 +14,29 @@ The following block `PASS` when introduced or directly affected by the current c
 - Security regression tests failing.
 - Existing relevant tests failing because of the change.
 
+## Five control-family gates
+
+Use `five-security-controls.md` and the same evidence standards as the
+general security gate. When the applicable surface was introduced or directly
+modified, a confirmed/high-confidence High/Critical violation blocks PASS:
+
+- **SEC-ENV / SEC-PROD:** actual secret committed, copied into client/build,
+  exposed via the web, logged, present in a public path or insecure production
+  default; suspected exposure requires safe rotation/remediation.
+- **SEC-RATE:** reachable high-impact authentication/OTP/reset endpoint lacks
+  effective abuse protection, or a spoofable proxy header bypasses the budget
+  with demonstrable security impact; document risk and avoid arbitrary
+  blanket limits for low-risk endpoints.
+- **SEC-ROW:** client-only filtering, missing owner/tenant predicates or
+  cross-user/cross-tenant access on a protected operation.
+- **SEC-SESS:** missing effective server-side expiration or revocation on a
+  security-sensitive session, or access remains possible after logout or
+  credential revocation where the policy requires it.
+
+The other subchecks are context-dependent: absence of a particular optional
+feature is not automatically Critical/High. Do not claim PASS based solely on
+static wording, a scanner's green status or a fingerprint.
+
 ## Release-only expansion
 
 For `RELEASE`, also block when:
@@ -24,6 +47,7 @@ For `RELEASE`, also block when:
 - the project handles secrets but obvious secrets scanning is absent and cannot be compensated by another verified check;
 - auth/permission behavior cannot be meaningfully verified and the release depends on the changed behavior;
 - a known High/Critical accepted risk has expired.
+- an applicable SEC-ENV/SEC-PROD/SEC-RATE/SEC-ROW/SEC-SESS release-critical control is unverified without adequate compensating evidence or a traceable risk decision.
 
 ## Risk acceptance
 

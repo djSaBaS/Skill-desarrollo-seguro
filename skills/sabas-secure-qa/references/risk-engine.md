@@ -49,6 +49,9 @@ Escalate when any of these are touched:
 - REST/AJAX endpoints that mutate data;
 - JWT/OAuth/OIDC/SAML;
 - CORS/CSRF/security headers/cookies;
+- IP/account rate limiting, abuse protection, reverse-proxy identity and throttling;
+- per-user row filtering, data ownership, RLS policies and tenant scoping;
+- inactivity timeout, absolute session lifetime, refresh-token rotation or revocation;
 - deserialization, dynamic includes or template execution;
 - `.github/workflows`, deployment credentials or CI permissions;
 - sensitive personal/business data.
@@ -63,6 +66,7 @@ Escalate when any of these apply:
 - privilege elevation or super-admin controls;
 - cryptographic key generation/storage/verification;
 - secret management or credential rotation;
+- exposure of a production `.env`, deployment-time secret provisioning or credential leakage into client/build artifacts;
 - multi-tenant isolation changes;
 - command/shell/process execution influenced by input;
 - unsafe deserialization or code evaluation paths;
