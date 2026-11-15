@@ -35,9 +35,27 @@ Read additionally when applicable:
 - `references/external-skill-routing.md` when external cybersecurity skills are installed.
 - `references/codex-security-integration.md` when the official Codex Security plugin/capabilities are visible in the current surface.
 - `references/hermes-security-integration.md` when running under Hermes or reviewing its native gate behavior.
+- `references/five-security-controls.md` whenever changing/reviewing secrets, `.env`, production configuration, IP/identity throttling, row-level authorization or sessions; also for applicable controls during RELEASE.
 - `references/usuario-torpe-integration.md` for UI/dynamic testing.
 - `references/threat-model-integration.md` for R3/R4 changes or when `SECURITY-THREAT-MODEL.md` exists.
 - `references/finding-and-report-format.md` whenever producing an audit/release result.
+
+## Explicit verification of the five sensitive controls
+
+When a task changes or reviews any of the following, read
+`references/five-security-controls.md` and select its applicable negative
+tests: `SEC-ENV` (.env secret isolation), `SEC-PROD` (production secret
+lifecycle), `SEC-RATE` (IP/account limiting), `SEC-ROW` (server-side
+per-user/per-tenant row isolation) and `SEC-SESS` (idle and absolute
+session expiration). For an explicit RELEASE, evaluate each control as
+PASS/FAIL/NOT VERIFIED/NOT APPLICABLE with an evidence pointer; never
+infer a PASS just because a control appears in this skill.
+
+Treat `.env` values as sensitive: inspect only file presence, location,
+access permissions, ignore rules and safe configuration properties.
+Never ask an agent/tool to print, import into chat, commit or upload real
+secrets. Distinguish database-level RLS from equivalent MySQL/MariaDB
+application-side query scoping.
 
 ## Release compliance cooperation
 
@@ -125,6 +143,7 @@ Apply checks in this order when relevant:
 5. Official Codex Security change review when available and justified by the risk/mode.
 6. SCA/dependency audit from lockfiles and manifests.
 7. Manual security review against `references/security-baseline.md`.
+   For applicable SEC-ENV/SEC-PROD/SEC-RATE/SEC-ROW/SEC-SESS controls, follow `references/five-security-controls.md` and record code/config evidence.
 8. Targeted negative/security tests derived from the threat model.
 9. Dynamic browser/API validation in a controlled environment.
 10. DAST only against explicitly authorized local/staging targets.
@@ -180,6 +199,7 @@ At minimum, block completion when:
 - a security fix has not been retested;
 - the release review has a Critical/High dependency vulnerability that is reachable/relevant and lacks explicit accepted-risk treatment;
 - required release checks are represented as passed despite not being executed.
+- a security-relevant changed surface fails an applicable control from `references/five-security-controls.md` with demonstrated High/Critical impact.
 
 ## Phase 9 — Remediate root cause
 
@@ -192,7 +212,8 @@ For implementation/remediation tasks:
 5. Parameterize data access.
 6. Avoid adding suppressions unless the finding is disproven or has a recorded risk acceptance.
 7. For a real exposed secret, redact it from reports, remove it from code, determine whether Git history contains it, and state that rotation/revocation is required when exposure was possible.
-8. Avoid broad refactors unless necessary for a safe fix.
+8. Preserve real server secrets only in private, untracked `.env` outside the public document root; stage safe `.env.example` key names, not values.
+9. Avoid broad refactors unless necessary for a safe fix.
 
 ## Phase 10 — Add regression proof
 
