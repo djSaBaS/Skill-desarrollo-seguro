@@ -42,7 +42,9 @@ them. For a sensitive production release, see `security-gates.md`.
    excluded from Git and release artefacts. A committed file is compromised
    even if later deleted: inspect history/CI/artifacts and rotate if exposed.
    `.env.example` may be versioned **only with key names and harmless blank
-   placeholders, never usable values**.
+   placeholders, never usable values**. A safe starting template is
+   `../assets/.env.example`; adapt names to the project without copying
+   any secret values into the repository.
 3. Store the actual `.env` outside `public_html`/`www`/web document root;
    if deployment cannot do this, move it to a private server directory and
    have application bootstrap read that private path. Verify web URLs,
