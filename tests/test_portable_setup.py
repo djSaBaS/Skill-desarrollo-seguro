@@ -174,5 +174,14 @@ ignore_rules = (root / ".gitignore").read_text(encoding="utf-8")
 # El patrón de exclusión incluye todas las variantes y permite solo ejemplo sin datos.
 assert ".env\n" in ignore_rules and ".env.*\n" in ignore_rules and "!.env.example" in ignore_rules
 
+# Lee la plantilla segura de claves de entorno con valores ficticios.
+env_template = (root / "skills" / "sabas-secure-qa" / "assets" / ".env.example").read_text(encoding="utf-8")
+# El archivo versionable de ejemplo debe definir nombres sin contraseñas reales.
+assert "DB_PASSWORD=" in env_template and "APP_SECRET=" in env_template
+# Los campos que representan secretos deben mantenerse sin valor predeterminado.
+for secret_key in ("DB_PASSWORD", "APP_SECRET", "SESSION_SIGNING_KEY", "SERVICE_API_KEY"):
+    # Busca únicamente declaraciones vacías, rechazando secretos introducidos accidentalmente en el ejemplo.
+    assert f"{secret_key}=\n" in env_template
+
 # Confirma que existe documentación dedicada a Antigravity.
 assert (root / "ANTIGRAVITY.md").is_file()
