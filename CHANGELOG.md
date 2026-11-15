@@ -1,5 +1,17 @@
 # Changelog
 
+## Unreleased — Five production security control families
+
+- Reforzados los cinco controles SEC-ENV, SEC-PROD, SEC-RATE, SEC-ROW y SEC-SESS
+  en `sabas-secure-qa`, con pruebas negativas, evidencia y bloqueo por riesgo.
+- Secretos en `.env` privado del servidor, fuera de `public_html`, ignorado
+  por Git, sin filtración a compilaciones y sin lectura de valores por el agente.
+- Gestión de secretos de producción, cuotas por IP/cuenta con proxy confiable,
+  aislamiento por fila en MySQL/MariaDB y caducidad real de sesiones.
+- El módulo de lanzamiento revisa los mismos controles sin duplicar análisis;
+  cobertura documental no equivale a prueba de una aplicación concreta.
+
+
 ## Unreleased — Modular installer + release compliance
 
 - Añadida la skill independiente `sabas-release-compliance` con un checklist
