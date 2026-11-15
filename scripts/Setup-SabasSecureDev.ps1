@@ -6,6 +6,9 @@ param(
     # Selecciona el agente de destino; si se omite se muestra un menú.
     [ValidateSet('Codex', 'Hermes', 'Antigravity', 'All')]
     [string]$Target,
+    # Selecciona grupos independientes; si se omite con menú interactivo se pregunta al usuario.
+    [ValidateSet('Security', 'Efficiency', 'Release', 'All')]
+    [string[]]$Components,
     # Solicita las skills defensivas externas para Codex/Hermes.
     [switch]$InstallExternalSkills,
     # Selecciona el perfil de skills defensivas externas.
@@ -38,6 +41,9 @@ $CoreInstaller = Join-Path $PSScriptRoot 'Install-SabasSecureDev.ps1'
 # Define la batería de autopruebas del bundle.
 $SelfTest = Join-Path $PSScriptRoot 'Test-SabasSecureDev.ps1'
 
+# Recuerda si el usuario debe elegir también qué componentes instalar.
+$InteractiveSetup = [string]::IsNullOrWhiteSpace($Target)
+
 # Solicita un destino cuando no se indicó por parámetro.
 if ([string]::IsNullOrWhiteSpace($Target)) {
     # Muestra la cabecera del selector.
@@ -66,6 +72,76 @@ if ([string]::IsNullOrWhiteSpace($Target)) {
         default { throw 'Invalid target selection.' }
     }
 }
+
+# Pregunta por la selección funcional después de elegir la IA de destino.
+if (-not $PSBoundParameters.ContainsKey('Components')) {
+    # El menú interactivo ofrece la configuración completa y selecciones parciales.
+    if ($InteractiveSetup) {
+        # Presenta una única selección funcional, independiente del agente.
+        Write-Host 'Selecciona qué skills instalar:'
+        # Ofrece el conjunto completo como opción recomendada.
+        Write-Host '  1) Completo: Seguridad + Eficiencia + Lanzamiento'
+        # Permite mantener solo los controles de seguridad.
+        Write-Host '  2) Seguridad (incluye usuario-torpe-qa)'
+        # Permite instalar únicamente la skill de eficiencia.
+        Write-Host '  3) Eficiencia'
+        # Permite instalar únicamente prepublicación y cumplimiento.
+        Write-Host '  4) Lanzamiento / cumplimiento legal y técnico'
+        # Permite escoger varios grupos sin duplicarlos.
+        Write-Host '  5) Personalizado (ej.: Security,Release)'
+        # Solicita la opción al usuario.
+        $ComponentChoice = Read-Host 'Opción [1-5]'
+        # Traduce el menú a nombres de módulos estables.
+        switch ($ComponentChoice) {
+            # Selecciona todo el catálogo propio.
+            '1' { $Components = @('All') }
+            # Selecciona solo seguridad.
+            '2' { $Components = @('Security') }
+            # Selecciona solo eficiencia.
+            '3' { $Components = @('Efficiency') }
+            # Selecciona solo lanzamiento.
+            '4' { $Components = @('Release') }
+            # Lee una selección expresada por nombres de módulo.
+            '5' { $Components = @((Read-Host 'Componentes separados por coma').Split(',') | ForEach-Object { $_.Trim() }) }
+            # Rechaza una selección desconocida.
+            default { throw 'Invalid component selection.' }
+        }
+    }
+    else {
+        # Preserva los componentes anteriores para llamadas existentes con -Target.
+        $Components = @('Security', 'Efficiency')
+    }
+}
+# Rechaza la instalación vacía y cualquier nombre no permitido, incluido el modo personalizado.
+if (@($Components).Count -eq 0) { throw 'Choose at least one component.' }
+# Valida también entradas del menú personalizado, que no pasan por el binder de parámetros.
+foreach ($ComponentName in $Components) {
+    # Exige nombres explícitos de la allowlist.
+    if ($ComponentName -notin @('Security', 'Efficiency', 'Release', 'All')) { throw "Invalid component: $ComponentName" }
+}
+# Expande All a los tres componentes reales.
+if ($Components -contains 'All') { $Components = @('Security', 'Efficiency', 'Release') }
+# Evita procesar un módulo dos veces.
+$Components = @($Components | Select-Object -Unique)
+# Resuelve controles sin depender de la selección de plataforma.
+$HasSecurity = $Components -contains 'Security'
+# Resuelve el módulo de eficiencia.
+$HasEfficiency = $Components -contains 'Efficiency'
+# Resuelve el módulo de prepublicación.
+$HasRelease = $Components -contains 'Release'
+# Impide instalar integraciones de seguridad si no se seleccionó su módulo.
+if ((-not $HasSecurity) -and ($InstallExternalSkills -or $UpdateGlobalAgents -or $InstallCompletionHook)) {
+    # Evita una configuración engañosa o incompleta.
+    throw 'Security integration flags require -Components Security.'
+}
+# Define únicamente las skills incluidas en los componentes solicitados.
+$SelectedSkillNames = @()
+# Agrupa las tres skills principales de seguridad.
+if ($HasSecurity) { $SelectedSkillNames += @('sabas-secure-qa', 'sabas-threat-model', 'sabas-security-bootstrap') }
+# Añade la skill de eficiencia sin forzar seguridad.
+if ($HasEfficiency) { $SelectedSkillNames += 'sabas-efficient-development' }
+# Añade la skill de revisión legal/técnica de prepublicación.
+if ($HasRelease) { $SelectedSkillNames += 'sabas-release-compliance' }
 
 # Crea la carpeta de backup solo cuando vaya a ser necesaria.
 New-Item -ItemType Directory -Force -Path $BackupRoot | Out-Null
@@ -322,16 +398,13 @@ function Install-SabasAntigravity {
     & $SelfTest -BundleRoot $PackageRoot
     # Detiene si la batería devolvió un código de error.
     if (-not $?) { throw 'Bundle self-test failed before Antigravity installation.' }
-    # Recorre todas las skills propias que contienen SKILL.md.
-    foreach ($SkillDirectory in Get-ChildItem -Path $SkillsSource -Directory) {
-        # Instala únicamente directorios que realmente sean Agent Skills.
-        if (Test-Path (Join-Path $SkillDirectory.FullName 'SKILL.md')) {
-            # Copia la skill al árbol global oficial de Antigravity.
-            Install-SabasPortableSkill -SkillName $SkillDirectory.Name -SkillsTarget $AntigravitySkillsTarget -PlatformName 'Antigravity'
-        }
+    # Recorre únicamente los módulos solicitados y validados por el menú.
+    foreach ($SkillName in $SelectedSkillNames) {
+        # Copia la skill al árbol global oficial de Antigravity.
+        Install-SabasPortableSkill -SkillName $SkillName -SkillsTarget $AntigravitySkillsTarget -PlatformName 'Antigravity'
     }
-    # Instala el soporte de usuario-torpe sin sobrescribir una copia ajena.
-    Install-SabasPortableTorpe -SkillsTarget $AntigravitySkillsTarget -PlatformName 'Antigravity'
+    # El soporte de usuario-torpe se instala únicamente con el grupo Seguridad.
+    if ($HasSecurity) { Install-SabasPortableTorpe -SkillsTarget $AntigravitySkillsTarget -PlatformName 'Antigravity' }
     # Informa de la ruta efectiva para facilitar la verificación manual.
     Write-Host "Antigravity skills path: $AntigravitySkillsTarget"
     # Aclara que esta integración no instala hooks externos al sandbox.
@@ -339,7 +412,17 @@ function Install-SabasAntigravity {
 }
 
 # Determina si hay que ejecutar el instalador principal de Codex/Hermes.
-$NeedsCoreInstaller = ($Target -eq 'Codex') -or ($Target -eq 'Hermes') -or ($Target -eq 'All')
+$NeedsCoreInstaller = $HasSecurity -and (($Target -eq 'Codex') -or ($Target -eq 'Hermes') -or ($Target -eq 'All'))
+
+# Valida el bundle antes de copiar módulos aislados que no requieren el instalador principal.
+if (-not $NeedsCoreInstaller) {
+    # Exige el runner de comprobaciones.
+    if (-not (Test-Path $SelfTest)) { throw 'Missing Test-SabasSecureDev.ps1.' }
+    # Verifica el manifiesto y los componentes sin ejecutar integraciones no elegidas.
+    & $SelfTest -BundleRoot $PackageRoot
+    # Detiene la operación si falla la validación.
+    if (-not $?) { throw 'Bundle self-test failed before standalone module installation.' }
+}
 
 # Ejecuta el instalador principal cuando corresponde.
 if ($NeedsCoreInstaller) {
@@ -368,24 +451,34 @@ if ($NeedsCoreInstaller) {
     if (-not $?) { throw 'Core Codex/Hermes installation failed.' }
 }
 
-# Completa sabas-efficient-development en Codex porque el motor V0.5.4 solo administraba las tres skills de seguridad originales.
+# Completa los módulos independientes en Codex.
 if (($Target -eq 'Codex') -or ($Target -eq 'All')) {
     # Define el árbol estándar compartido por Codex CLI/IDE.
     $CodexSkillsTarget = Join-Path $HOME '.agents\skills'
-    # Instala o actualiza la skill de eficiencia.
-    Install-SabasPortableSkill -SkillName 'sabas-efficient-development' -SkillsTarget $CodexSkillsTarget -PlatformName 'Codex'
-    # Repara la codificación del JSON de hooks aunque proceda de una instalación V0.5.4 anterior.
-    Repair-SabasCodexHooksEncoding
-    # Verifica la integridad del hook cuando existe.
-    Test-SabasCodexHookIntegrity
+    # Añade eficiencia solo cuando está seleccionada.
+    if ($HasEfficiency) { Install-SabasPortableSkill -SkillName 'sabas-efficient-development' -SkillsTarget $CodexSkillsTarget -PlatformName 'Codex' }
+    # Añade prepublicación de manera independiente.
+    if ($HasRelease) { Install-SabasPortableSkill -SkillName 'sabas-release-compliance' -SkillsTarget $CodexSkillsTarget -PlatformName 'Codex' }
+    # Conserva las comprobaciones del hook solo cuando se instaló el grupo Seguridad.
+    if ($HasSecurity) {
+        # Repara la codificación del JSON de hooks de Codex.
+        Repair-SabasCodexHooksEncoding
+        # Verifica la integridad del hook cuando existe.
+        Test-SabasCodexHookIntegrity
+    }
 }
 
-# Completa sabas-efficient-development en el home efectivo de Hermes.
+# Completa los módulos independientes en el home efectivo de Hermes.
 if (($Target -eq 'Hermes') -or ($Target -eq 'All')) {
-    # Localiza el árbol que realmente usa Hermes, dando prioridad a discovery confirmado.
-    $HermesSkillsTarget = Resolve-SabasHermesSkillsTarget
-    # Instala o actualiza la skill de eficiencia.
-    Install-SabasPortableSkill -SkillName 'sabas-efficient-development' -SkillsTarget $HermesSkillsTarget -PlatformName 'Hermes'
+    # Evita discovery y creación de carpetas si no hay módulos adicionales.
+    if ($HasEfficiency -or $HasRelease) {
+        # Localiza el árbol que realmente usa Hermes, dando prioridad a discovery confirmado.
+        $HermesSkillsTarget = Resolve-SabasHermesSkillsTarget
+        # Instala eficiencia cuando se solicitó.
+        if ($HasEfficiency) { Install-SabasPortableSkill -SkillName 'sabas-efficient-development' -SkillsTarget $HermesSkillsTarget -PlatformName 'Hermes' }
+        # Instala prepublicación cuando se solicitó.
+        if ($HasRelease) { Install-SabasPortableSkill -SkillName 'sabas-release-compliance' -SkillsTarget $HermesSkillsTarget -PlatformName 'Hermes' }
+    }
 }
 
 # Instala Antigravity cuando fue seleccionado explícitamente o mediante All.
