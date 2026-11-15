@@ -9,6 +9,7 @@ La seguridad sigue siendo una condición de finalización del cambio. La capa de
 - `sabas-efficient-development`: reduce consumo innecesario, acota prompts amplios y trabaja por lotes verificables.
 - `sabas-release-compliance`: checklist original de 35 verificaciones legales, de privacidad y técnicas para preparar lanzamientos, con evidencia y estado por control.
 - `sabas-secure-qa`: orquestador de seguridad R0-R4 con modos FAST/STANDARD/DEEP/RELEASE.
+  Refuerza cinco controles con pruebas negativas: secretos en `.env` privado, gestión en producción, límites IP/cuenta, aislamiento de datos por usuario y expiración real de sesiones.
 - `sabas-threat-model`: crea y mantiene `SECURITY-THREAT-MODEL.md`.
 - `sabas-security-bootstrap`: prepara un proyecto para trabajar con seguridad desde el principio.
 - `usuario-torpe-qa`: prueba flujos como un usuario propenso a errores, siempre en entorno autorizado.
