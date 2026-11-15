@@ -7,6 +7,7 @@ La seguridad sigue siendo una condición de finalización del cambio. La capa de
 ## Qué incluye
 
 - `sabas-efficient-development`: reduce consumo innecesario, acota prompts amplios y trabaja por lotes verificables.
+- `sabas-release-compliance`: checklist original de 35 verificaciones legales, de privacidad y técnicas para preparar lanzamientos, con evidencia y estado por control.
 - `sabas-secure-qa`: orquestador de seguridad R0-R4 con modos FAST/STANDARD/DEEP/RELEASE.
 - `sabas-threat-model`: crea y mantiene `SECURITY-THREAT-MODEL.md`.
 - `sabas-security-bootstrap`: prepara un proyecto para trabajar con seguridad desde el principio.
@@ -34,6 +35,28 @@ El selector ofrece:
 3) Google Antigravity IDE
 4) Todos
 ```
+
+Tras elegir la IA, el menú interactivo pregunta **qué grupo de skills instalar**:
+`Completo`, `Seguridad`, `Eficiencia`, `Lanzamiento` o `Personalizado`.
+Son módulos independientes dentro de un único repositorio; cada uno mantiene
+su propio `SKILL.md`.
+
+```powershell
+# Solo el control prepublicación para Codex, sin modificar sus hooks.
+.\Setup-SabasSecureDev.ps1 -Target Codex -Components Release
+
+# Seguridad y revisión prepublicación para Hermes.
+.\Setup-SabasSecureDev.ps1 -Target Hermes -Components Security,Release
+
+# Todos los componentes para las tres IA.
+.\Setup-SabasSecureDev.ps1 -Target All -Components All
+```
+
+**Compatibilidad:** las llamadas antiguas con `-Target` pero sin
+`-Components` conservan Seguridad + Eficiencia. El instalador interactivo
+ofrece el conjunto completo, incluida la nueva skill de lanzamiento.
+Las flags `-InstallExternalSkills`, `-UpdateGlobalAgents` y
+`-InstallCompletionHook` requieren seleccionar Seguridad.
 
 Instalación directa:
 
@@ -206,6 +229,17 @@ informe + STOP
 ```
 
 Si resolver correctamente el problema exige ampliar el alcance, el agente debe justificarlo.
+
+## Flujo de prepublicación
+
+Activa `sabas-release-compliance` antes de distribuir una app web, Android,
+iOS o servicio SaaS. Sus 35 controles se califican como `PASS`, `FAIL`,
+`NOT_VERIFIED` o `NOT_APPLICABLE`, con evidencias y un informe de salida.
+
+El reel de @bybrayan.ai menciona 35 comprobaciones, pero su descripción pública
+no incluye la lista. Por ello, los 35 puntos del repositorio son una
+**propuesta independiente**, no una transcripción ni una copia de su guía.
+La revisión automatizada no sustituye al asesoramiento jurídico.
 
 ## Flujo de seguridad
 

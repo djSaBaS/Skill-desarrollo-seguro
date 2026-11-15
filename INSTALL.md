@@ -96,6 +96,55 @@ Con skills externas:
 
 `All` instala las skills propias en los tres agentes. Las skills externas opcionales siguen instalándose únicamente en Codex/Hermes porque su integración y allowlist fueron validadas originalmente para esos agentes.
 
+## 2.1. Selección de skills por módulo
+
+Si ejecutas `.\Setup-SabasSecureDev.ps1` sin parámetros, primero elegirás
+Codex, Hermes, Antigravity o todos; después se abre un segundo selector:
+
+```text
+1) Completo: Seguridad + Eficiencia + Lanzamiento
+2) Seguridad
+3) Eficiencia
+4) Lanzamiento / cumplimiento legal y técnico
+5) Personalizado (por ejemplo Security,Release)
+```
+
+Las cuatro skills de seguridad y soporte no son una única skill gigante:
+`Security` agrupa `sabas-secure-qa`, `sabas-threat-model`,
+`sabas-security-bootstrap` y `usuario-torpe-qa`.
+`Efficiency` instala `sabas-efficient-development`.
+`Release` instala `sabas-release-compliance`, con 35 verificaciones
+contextuales previas a la publicación.
+
+```powershell
+# Instalar solo la skill de lanzamiento.
+.\Setup-SabasSecureDev.ps1 -Target Codex -Components Release
+
+# Elegir dos módulos manteniendo independientes sus skills.
+.\Setup-SabasSecureDev.ps1 -Target Hermes -Components Security,Release
+
+# Instalar todos los módulos.
+.\Setup-SabasSecureDev.ps1 -Target All -Components All
+
+# Actualizar solo la skill de lanzamiento desde GitHub.
+.\Update-SabasSecureDev.ps1 -Target Codex -Components Release
+
+# Desinstalar solo lanzamiento, dejando seguridad y eficiencia intactos.
+.\Uninstall-SabasSecureDev.ps1 -Target Codex -Components Release
+```
+
+Con `-Target` sin `-Components`, el instalador conserva el comportamiento
+anterior de Seguridad + Eficiencia. `-Components All` habilita el catálogo
+completo de tres grupos. La desinstalación sin `-Components` retira todos
+los módulos propios instalados (conservando las reglas actuales sobre hooks,
+soporte y externas). Las opciones de hooks y componentes externos de
+seguridad solo se aceptan con `Security`.
+
+La nueva skill de lanzamiento no certifica cumplimiento legal. Es un
+preflight documentado, con controles aplicables/no aplicables y evidencia.
+Su checklist es original: el reel vinculado menciona 35 comprobaciones,
+pero no muestra la lista íntegra en su descripción.
+
 ## 3. Qué hace el setup portable
 
 Para Codex/Hermes:

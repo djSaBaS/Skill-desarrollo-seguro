@@ -3,6 +3,9 @@ param(
     # Selecciona el agente; si se omite se muestra un menú.
     [ValidateSet('Codex', 'Hermes', 'Antigravity', 'Both', 'All')]
     [string]$Target,
+    # Permite retirar uno o varios grupos sin desinstalar las skills restantes.
+    [ValidateSet('Security', 'Efficiency', 'Release', 'All')]
+    [string[]]$Components = @('All'),
     # Permite retirar el bloque administrado de AGENTS.md/AGENTS.override.md de Codex.
     [switch]$RemoveGlobalAgentsBlock,
     # Permite retirar el Stop Hook administrado de Codex.
@@ -31,8 +34,25 @@ $Timestamp = Get-Date -Format 'yyyyMMdd-HHmmss'
 $BackupRoot = Join-Path $HOME ".sabas-secure-development\backups\uninstall-$Timestamp"
 # Crea el backup antes de borrar componentes.
 New-Item -ItemType Directory -Force -Path $BackupRoot | Out-Null
-# Define todas las skills propias instaladas por el bundle portable.
-$SkillNames = @('sabas-efficient-development', 'sabas-secure-qa', 'sabas-threat-model', 'sabas-security-bootstrap')
+# Expande All para retirar todos los componentes propios, incluido Lanzamiento.
+if ($Components -contains 'All') { $Components = @('Security', 'Efficiency', 'Release') }
+# Calcula los grupos efectivos sin duplicados.
+$Components = @($Components | Select-Object -Unique)
+# Identifica si se retiran integraciones de seguridad.
+$RemovingSecurity = $Components -contains 'Security'
+# Define únicamente las skills seleccionadas para desinstalar.
+$SkillNames = @()
+# Añade el bloque de seguridad principal.
+if ($RemovingSecurity) { $SkillNames += @('sabas-secure-qa', 'sabas-threat-model', 'sabas-security-bootstrap') }
+# Añade la skill de eficiencia si está incluida.
+if ($Components -contains 'Efficiency') { $SkillNames += 'sabas-efficient-development' }
+# Añade la skill de prepublicación si está incluida.
+if ($Components -contains 'Release') { $SkillNames += 'sabas-release-compliance' }
+# Evita retirar configuraciones de seguridad al desinstalar otros módulos.
+if ((-not $RemovingSecurity) -and ($RemoveGlobalAgentsBlock -or $RemoveCompletionHook -or $RemoveBundledUsuarioTorpe)) {
+    # Rechaza una solicitud incompatible en lugar de ignorarla silenciosamente.
+    throw 'Security removal flags require -Components Security.'
+}
 
 # Solicita destino si no se indicó por parámetro.
 if ([string]::IsNullOrWhiteSpace($Target)) {
@@ -433,16 +453,16 @@ if (($Target -eq 'Codex') -or ($Target -eq 'Both') -or ($Target -eq 'All')) {
     # Elimina todas las skills propias, incluida la capa de eficiencia.
     Remove-SabasOwnedSkills -SkillsTarget $CodexSkillsTarget -PlatformName 'Codex'
     # Retira bloque global solo si se pidió.
-    if ($RemoveGlobalAgentsBlock) {
+    if ($RemovingSecurity -and $RemoveGlobalAgentsBlock) {
         # Procesa AGENTS principal.
         Remove-SabasAgentsBlock -AgentsFile (Join-Path $CodexHome 'AGENTS.md')
         # Procesa override.
         Remove-SabasAgentsBlock -AgentsFile (Join-Path $CodexHome 'AGENTS.override.md')
     }
     # Retira hook solo si se pidió.
-    if ($RemoveCompletionHook) { Remove-SabasCodexHook }
+    if ($RemovingSecurity -and $RemoveCompletionHook) { Remove-SabasCodexHook }
     # Retira torpe únicamente con autorización y marcador.
-    if ($RemoveBundledUsuarioTorpe) { Remove-SabasBundledTorpe -SkillsTarget $CodexSkillsTarget -PlatformName 'Codex' }
+    if ($RemovingSecurity -and $RemoveBundledUsuarioTorpe) { Remove-SabasBundledTorpe -SkillsTarget $CodexSkillsTarget -PlatformName 'Codex' }
 }
 
 # Retira Hermes cuando está seleccionado directa o conjuntamente.
@@ -454,9 +474,9 @@ if (($Target -eq 'Hermes') -or ($Target -eq 'Both') -or ($Target -eq 'All')) {
     # Elimina todas las skills propias, incluida la capa de eficiencia.
     Remove-SabasOwnedSkills -SkillsTarget $HermesSkillsTarget -PlatformName 'Hermes'
     # Retira el plugin propio del mismo home efectivo.
-    Remove-SabasHermesPlugin -ResolvedHermesHome $HermesHome
+    if ($RemovingSecurity) { Remove-SabasHermesPlugin -ResolvedHermesHome $HermesHome }
     # Retira torpe únicamente con autorización y marcador.
-    if ($RemoveBundledUsuarioTorpe) { Remove-SabasBundledTorpe -SkillsTarget $HermesSkillsTarget -PlatformName 'Hermes' }
+    if ($RemovingSecurity -and $RemoveBundledUsuarioTorpe) { Remove-SabasBundledTorpe -SkillsTarget $HermesSkillsTarget -PlatformName 'Hermes' }
 }
 
 # Retira las Agent Skills globales de Antigravity cuando se selecciona ese destino o todos.
@@ -464,7 +484,7 @@ if (($Target -eq 'Antigravity') -or ($Target -eq 'All')) {
     # Elimina todas las skills propias del árbol global oficial.
     Remove-SabasOwnedSkills -SkillsTarget $AntigravitySkillsTarget -PlatformName 'Antigravity'
     # Retira torpe únicamente cuando se pidió y el marcador demuestra propiedad Sabas.
-    if ($RemoveBundledUsuarioTorpe) { Remove-SabasBundledTorpe -SkillsTarget $AntigravitySkillsTarget -PlatformName 'Antigravity' }
+    if ($RemovingSecurity -and $RemoveBundledUsuarioTorpe) { Remove-SabasBundledTorpe -SkillsTarget $AntigravitySkillsTarget -PlatformName 'Antigravity' }
 }
 
 # Aclara que las skills externas se preservan porque pueden usarse de forma independiente.
@@ -472,4 +492,4 @@ Write-Host 'External cybersecurity skills are intentionally left installed.'
 # Informa de backups.
 Write-Host "Backup directory: $BackupRoot"
 # Confirma finalización.
-Write-Host "Sabas Secure Development removed for target: $Target"
+Write-Host "Sabas components removed for target: $Target; components: $($Components -join ', ')"

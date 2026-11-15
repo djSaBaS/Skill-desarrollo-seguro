@@ -3,6 +3,9 @@ param(
     # Selecciona el agente que se quiere actualizar; si se omite se delega el selector al setup descargado.
     [ValidateSet('Codex', 'Hermes', 'Antigravity', 'All')]
     [string]$Target,
+    # Permite actualizar únicamente Seguridad, Eficiencia o Lanzamiento.
+    [ValidateSet('Security', 'Efficiency', 'Release', 'All')]
+    [string[]]$Components,
     # Selecciona la rama o referencia pública que se descargará.
     [string]$Ref = 'main',
     # Solicita actualizar también las skills defensivas externas de Codex/Hermes.
@@ -60,6 +63,8 @@ try {
     }
     # Transfiere el destino únicamente cuando fue indicado.
     if (-not [string]::IsNullOrWhiteSpace($Target)) { $SetupArguments['Target'] = $Target }
+    # Preserva la selección funcional y su compatibilidad retroactiva cuando se omite.
+    if ($PSBoundParameters.ContainsKey('Components')) { $SetupArguments['Components'] = $Components }
     # Transfiere la solicitud de skills externas.
     if ($InstallExternalSkills) { $SetupArguments['InstallExternalSkills'] = $true }
     # Transfiere la actualización de instrucciones globales.

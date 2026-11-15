@@ -37,6 +37,21 @@ jobs:
       - name: Run portable self-test
         shell: pwsh
         run: ./scripts/Test-SabasSecureDev.ps1
+      - name: Smoke selective Codex release install
+        shell: pwsh
+        run: |
+          # Instala únicamente el control de prepublicación.
+          ./scripts/Setup-SabasSecureDev.ps1 -Target Codex -Components Release
+          # Obtiene la ruta global esperada del nuevo módulo.
+          $releaseFile = Join-Path $HOME '.agents/skills/sabas-release-compliance/SKILL.md'
+          # Confirma que el módulo solicitado existe realmente.
+          if (-not (Test-Path $releaseFile)) { throw 'Release skill missing after install' }
+          # No debe aparecer ninguna skill del módulo de seguridad no solicitado.
+          if (Test-Path (Join-Path $HOME '.agents/skills/sabas-secure-qa/SKILL.md')) { throw 'Unexpected Security skill installed' }
+          # Desinstala solo la revisión de prepublicación.
+          ./scripts/Uninstall-SabasSecureDev.ps1 -Target Codex -Components Release
+          # Confirma que se retiró el módulo seleccionado.
+          if (Test-Path $releaseFile) { throw 'Release skill remained after uninstall' }
 
   windows:
     name: Windows PowerShell validation
@@ -51,6 +66,21 @@ jobs:
       - name: Run bundle self-test
         shell: powershell
         run: .\scripts\Test-SabasSecureDev.ps1
+      - name: Smoke selective Antigravity release install
+        shell: powershell
+        run: |
+          # Instala únicamente la skill de lanzamiento en Antigravity.
+          .\scripts\Setup-SabasSecureDev.ps1 -Target Antigravity -Components Release
+          # Comprueba la ruta oficial usada por Antigravity IDE.
+          $releaseFile = Join-Path $HOME '.gemini\config\skills\sabas-release-compliance\SKILL.md'
+          # Exige la presencia de la skill solicitada.
+          if (-not (Test-Path $releaseFile)) { throw 'Antigravity release skill missing' }
+          # No debe haber ninguna skill de seguridad instalada por el flujo release-only.
+          if (Test-Path (Join-Path $HOME '.gemini\config\skills\sabas-secure-qa\SKILL.md')) { throw 'Unexpected Antigravity Security skill' }
+          # Retira el módulo recién instalado.
+          .\scripts\Uninstall-SabasSecureDev.ps1 -Target Antigravity -Components Release
+          # Verifica que la retirada no deja la skill activa.
+          if (Test-Path $releaseFile) { throw 'Antigravity release skill remained' }
       - name: Run Hermes installer smoke test
         shell: powershell
         run: .\tests\Invoke-HermesInstallerSmoke.ps1

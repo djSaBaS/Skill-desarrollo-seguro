@@ -39,6 +39,14 @@ Read additionally when applicable:
 - `references/threat-model-integration.md` for R3/R4 changes or when `SECURITY-THREAT-MODEL.md` exists.
 - `references/finding-and-report-format.md` whenever producing an audit/release result.
 
+## Release compliance cooperation
+
+For an explicit app-store submission, public launch or legal/privacy go-live
+decision, coordinate with `sabas-release-compliance` if installed. This QA skill
+remains the technical security gate; release compliance separately assesses
+applicable legal, privacy, distribution and operational evidence. Do not run
+the entire prelaunch checklist for an ordinary code change.
+
 ## Phase 0 — Obey project instructions and determine scope
 
 1. Read the active project context (`.hermes.md`, `AGENTS.override.md` or `AGENTS.md` as applicable) and repository documentation relevant to the change.

@@ -1,0 +1,6 @@
+interface:
+  display_name: "Sabas Release Compliance"
+  short_description: "35-point evidence-based prelaunch review"
+  default_prompt: "Audit the planned app or service release against the contextual 35-point prelaunch checklist. Confirm applicable markets and platforms, separate evidence from unverified assumptions, coordinate targeted security tests when needed, and provide a risk-based go/no-go report. Never certify legal compliance."
+policy:
+  allow_implicit_invocation: true
