@@ -198,6 +198,28 @@ def main() -> int:
     assert codex_hook.has_valid_security_receipt(receipt, fingerprint) is True
     # Define el clasificador de repositorios.
     context_script = root / "skills" / "sabas-secure-qa" / "scripts" / "security_context.py"
+    # Carga el clasificador sin lanzar análisis de ningún repositorio real.
+    context_module = load_module("sabas_security_context_regression", context_script)
+    # Exige que los ficheros .env de producción se clasifiquen como superficie crítica.
+    prod_env_risk = context_module.classify_risk(["config/.env.production"], "")
+    # La configuración sensible de producción necesita modo RELEASE.
+    assert prod_env_risk["risk"] == "R4" and prod_env_risk["mode"] == "RELEASE"
+    # Comprueba que el .env.example sin valores no dispara una alerta de fichero secreto.
+    example_env_risk = context_module.classify_risk(["config/.env.example"], "")
+    # Evita falsos positivos sobre plantillas sin credenciales.
+    assert example_env_risk["risk"] != "R4"
+    # Exige revisión profunda al modificar un limitador de abuso por IP.
+    rate_limit_risk = context_module.classify_risk(["src/rate_limiter.php"], "")
+    # La limitación de peticiones forma parte del perímetro de seguridad.
+    assert rate_limit_risk["risk"] == "R3"
+    # Exige revisión profunda al modificar políticas de aislamiento de filas.
+    row_isolation_risk = context_module.classify_risk(["src/rls_policy.php"], "")
+    # Un fallo de pertenencia puede exponer datos de otros usuarios.
+    assert row_isolation_risk["risk"] == "R3"
+    # Exige revisión profunda de modificaciones en sesión.
+    session_risk = context_module.classify_risk(["src/session_expiry.php"], "")
+    # La expiración del servidor es sensible.
+    assert session_risk["risk"] == "R3"
     # Crea un repositorio Git desechable para comprobar que la huella cambia con el contenido.
     with tempfile.TemporaryDirectory(prefix="sabas-secure-test-") as temp_dir:
         # Resuelve la carpeta temporal.
