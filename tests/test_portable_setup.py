@@ -147,5 +147,32 @@ for index in range(1, 36):
 # Impide presentar los 35 controles originales como transcripción de un vídeo no verificado.
 assert "not a" in preflight and "transcription" in preflight
 
+# Lee el catálogo reforzado de controles críticos de seguridad.
+five_controls = (root / "skills" / "sabas-secure-qa" / "references" / "five-security-controls.md").read_text(encoding="utf-8")
+# Valida que las cinco familias tengan un contrato verificable en la documentación distribuida.
+for family in ("SEC-ENV", "SEC-PROD", "SEC-RATE", "SEC-ROW", "SEC-SESS"):
+    # Exige que cada familia posea requisitos y pruebas negativas explícitos.
+    assert f"## {family}" in five_controls
+# Comprueba que secretos reales se guarden fuera de Git y del directorio público.
+assert ".env.example" in five_controls and "public_html" in five_controls
+# Exige comprobar el aislamiento por servidor cuando el proyecto utilice MySQL/MariaDB.
+assert "PHP/MySQL/MariaDB" in five_controls
+# Exige que el limitador contemple IP de origen confiable y encabezados falsificados.
+assert "X-Forwarded-For" in five_controls and "429 Too Many Requests" in five_controls
+# Exige que las sesiones tengan caducidad por inactividad y duración máxima.
+assert "idle timeout" in five_controls and "absolute" in five_controls
+# Comprueba que las reglas se carguen al revisar código sensible.
+security_skill = (root / "skills" / "sabas-secure-qa" / "SKILL.md").read_text(encoding="utf-8")
+# El orquestador debe conocer la referencia de comprobaciones.
+assert "references/five-security-controls.md" in security_skill
+# Comprueba que la política de gate no pueda ignorar los cinco controles.
+security_gates = (root / "skills" / "sabas-secure-qa" / "references" / "security-gates.md").read_text(encoding="utf-8")
+# Exige el ruteo explícito de los riesgos de los controles al gate.
+assert "Five control-family gates" in security_gates
+# Confirma que el repositorio no permita añadir secretos .env accidentalmente.
+ignore_rules = (root / ".gitignore").read_text(encoding="utf-8")
+# El patrón de exclusión incluye todas las variantes y permite solo ejemplo sin datos.
+assert ".env\n" in ignore_rules and ".env.*\n" in ignore_rules and "!.env.example" in ignore_rules
+
 # Confirma que existe documentación dedicada a Antigravity.
 assert (root / "ANTIGRAVITY.md").is_file()
