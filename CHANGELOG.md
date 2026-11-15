@@ -1,5 +1,18 @@
 # Changelog
 
+## Unreleased — Modular installer + release compliance
+
+- Añadida la skill independiente `sabas-release-compliance` con un checklist
+  propio de 35 comprobaciones de prepublicación, evidencia y alcance legal.
+- El instalador interactivo pregunta primero por IA y después por módulos:
+  Seguridad, Eficiencia, Lanzamiento, Completo o Personalizado.
+- La selección `-Components` también se transmite al actualizador y al
+  desinstalador; los comandos heredados con `-Target` siguen instalando
+  Seguridad + Eficiencia por defecto.
+- La nueva checklist no se atribuye al creador del reel, cuya descripción
+  pública no incluye los 35 puntos detallados.
+
+
 ## Bundle update 2026-09-15 — Sabas Efficient Development V0.2.0 + Antigravity
 
 - Añade `sabas-efficient-development` V0.2.0 con **Scope Compiler** para convertir peticiones amplias en lotes pequeños y verificables antes de usar herramientas.
