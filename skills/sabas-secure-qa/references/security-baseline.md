@@ -120,7 +120,31 @@ This is a practical routing baseline, not a reproduction of the full ASVS standa
 - Treat IDs as references, not authorization proof.
 - Protect authentication endpoints against brute-force/credential-stuffing according to risk.
 
-## 15. Security verification discipline
+## 15. Five evidence-based critical controls
+
+For secrets/`.env`, production credentials, rate limits, row-level isolation
+or sessions, follow `five-security-controls.md` and its negative tests:
+
+- **SEC-ENV:** require real secrets in private server-side `.env`, outside
+  `public_html`, excluded from Git/build/client, with harmless
+  `.env.example` only. Never read or expose secret values.
+- **SEC-PROD:** protect the production `.env` through provisioning,
+  least-privilege runtime access, safe startup, debug suppression and rotation.
+- **SEC-RATE:** test IP + account/identity + endpoint rate limits using
+  trustworthy proxy attribution, shared atomic counters and a deliberate
+  429/retry policy.
+- **SEC-ROW:** enforce ownership/tenant rules on every server-side read,
+  write, list, export, join and background operation; use PostgreSQL RLS
+  policies where available or equivalent scoped queries/authorization in
+  PHP/MySQL/MariaDB.
+- **SEC-SESS:** verify server-side idle AND absolute session expiration,
+  secure cookies, identifier rotation, logout/revocation and JWT refresh
+  lifecycle where used.
+
+The presence of a configuration flag or a line in the baseline is not a
+passed verification. Report missing runtime evidence as NOT VERIFIED.
+
+## 16. Security verification discipline
 
 - Every security control needs evidence: code path, automated test, runtime observation or scanner result.
 - Validate scanner findings before severity/gating.
