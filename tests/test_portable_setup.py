@@ -120,5 +120,32 @@ assert "~/.gemini/config/skills/" in efficient_readme
 # Impide documentar la ruta antigua.
 assert "~/.gemini/antigravity/skills/" not in efficient_readme
 
+# Comprueba que el instalador expone selección funcional independiente del agente.
+assert "[string[]]$Components" in setup
+# Comprueba que el instalador mantiene el selector de grupos para uso interactivo.
+assert "Selecciona qué skills instalar" in setup
+# Impide ejecutar el motor de seguridad cuando el usuario solicita solo eficiencia o lanzamiento.
+assert "$NeedsCoreInstaller = $HasSecurity" in setup
+# Exige que la nueva skill esté disponible en Codex, Hermes y Antigravity.
+assert "sabas-release-compliance" in setup
+# Verifica que el actualizador reenvía la selección funcional.
+assert "$SetupArguments['Components'] = $Components" in updater
+# Verifica que el desinstalador puede retirar módulos sin afectar al plugin de Hermes.
+assert "$RemovingSecurity" in uninstaller
+# Exige el contrato completo de la nueva Agent Skill.
+release_root = root / "skills" / "sabas-release-compliance"
+# Comprueba la identidad de la skill y su guía auxiliar.
+assert (release_root / "SKILL.md").is_file()
+# Comprueba la definición del agente que permite selección automática.
+assert (release_root / "agents" / "openai.yaml").is_file()
+# Lee la guía original de prepublicación.
+preflight = (release_root / "references" / "preflight-35.md").read_text(encoding="utf-8")
+# Exige identificadores numerados consecutivos y sin duplicados para los 35 controles.
+for index in range(1, 36):
+    # Cada identificador comienza una nueva línea numerada.
+    assert f"{index:02d}. **" in preflight
+# Impide presentar los 35 controles originales como transcripción de un vídeo no verificado.
+assert "not a" in preflight and "transcription" in preflight
+
 # Confirma que existe documentación dedicada a Antigravity.
 assert (root / "ANTIGRAVITY.md").is_file()
