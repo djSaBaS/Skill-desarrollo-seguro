@@ -56,12 +56,16 @@ uncertain. Do not assert that all 35 items are universally legally mandatory.
 
 ### 4. Security and integrity
 
-16. **Authentication and sessions:** verify MFA where warranted, session
-    lifecycle, secure storage of credentials and recovery protections.
-17. **Authorization and abuse:** test object-level access, roles, rate limits,
-    tenant isolation and risky input/file paths as applicable.
-18. **Secrets and transport:** prevent exposed credentials, enforce suitable
-    TLS and encryption at rest where risk requires; verify secret rotation.
+16. **Authentication and sessions:** verify MFA where warranted, server-side
+    inactivity and absolute session expiration, logout/revocation, secure
+    cookies, refresh-token lifecycle and account recovery protections.
+17. **Authorization and abuse:** test IP + identity rate limits, trusted
+    proxies and 429 behavior; verify per-user/per-tenant row isolation on
+    read/write/export operations, roles and risky input/file paths.
+18. **Secrets and transport:** require private, untracked server-side
+    `.env` for real credentials and production keys outside the document
+    root; verify exposure prevention, access permissions, safe provisioning,
+    rotation, suitable TLS and appropriate encryption at rest.
 19. **Supply chain:** audit vulnerable dependencies, SDK provenance,
     licenses, build provenance and SBOM when appropriate.
 20. **Logging and incident readiness:** ensure redacted logs, alerts,
