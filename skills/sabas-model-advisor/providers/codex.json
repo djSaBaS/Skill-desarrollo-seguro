@@ -1,0 +1,22 @@
+{
+  "assistant": "codex",
+  "source": "https://developers.openai.com/api/docs/guides/model-selection",
+  "reviewed": "2026-11-26",
+  "status": "documentation-reviewed",
+  "models": [
+    {
+      "name": "GPT-6.2 Sol",
+      "availability": "confirm-in-environment",
+      "cost": null,
+      "effort": null
+    },
+    {
+      "name": "GPT-6.2 Astra",
+      "availability": "confirm-in-environment",
+      "cost": null,
+      "effort": null
+    }
+  ],
+  "notes": "Confirm exact picker IDs and effort; no API pricing inference.",
+  "ranking": "local evaluation only; no universal model ranking"
+}

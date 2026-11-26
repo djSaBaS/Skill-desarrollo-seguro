@@ -1,0 +1,22 @@
+{
+  "assistant": "gemini",
+  "source": "https://support.google.com/gemini/answer/18648722",
+  "reviewed": "2026-11-26",
+  "status": "documentation-reviewed",
+  "models": [
+    {
+      "name": "Gemini Flash-Lite",
+      "availability": "confirm-in-environment",
+      "cost": null,
+      "effort": null
+    },
+    {
+      "name": "Hydrogen",
+      "availability": "confirm-in-environment",
+      "cost": null,
+      "effort": null
+    }
+  ],
+  "notes": "Auto routing and thinking availability depend on plan.",
+  "ranking": "local evaluation only; no universal model ranking"
+}

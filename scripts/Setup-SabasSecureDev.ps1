@@ -7,7 +7,7 @@ param(
     [ValidateSet('Codex', 'Hermes', 'Antigravity', 'All')]
     [string]$Target,
     # Selecciona grupos independientes; si se omite con menú interactivo se pregunta al usuario.
-    [ValidateSet('Security', 'Efficiency', 'Release', 'All')]
+    [ValidateSet('Security', 'Efficiency', 'Release', 'ModelAdvisor', 'All')]
     [string[]]$Components,
     # Solicita las skills defensivas externas para Codex/Hermes.
     [switch]$InstallExternalSkills,
@@ -80,7 +80,7 @@ if (-not $PSBoundParameters.ContainsKey('Components')) {
         # Presenta una única selección funcional, independiente del agente.
         Write-Host 'Selecciona qué skills instalar:'
         # Ofrece el conjunto completo como opción recomendada.
-        Write-Host '  1) Completo: Seguridad + Eficiencia + Lanzamiento'
+        Write-Host '  1) Completo: Seguridad + Eficiencia + Lanzamiento + Asesor'
         # Permite mantener solo los controles de seguridad.
         Write-Host '  2) Seguridad (incluye usuario-torpe-qa)'
         # Permite instalar únicamente la skill de eficiencia.
@@ -88,7 +88,7 @@ if (-not $PSBoundParameters.ContainsKey('Components')) {
         # Permite instalar únicamente prepublicación y cumplimiento.
         Write-Host '  4) Lanzamiento / cumplimiento legal y técnico'
         # Permite escoger varios grupos sin duplicarlos.
-        Write-Host '  5) Personalizado (ej.: Security,Release)'
+        Write-Host '  5) Personalizado (ej.: Security,Release,ModelAdvisor)'
         # Solicita la opción al usuario.
         $ComponentChoice = Read-Host 'Opción [1-5]'
         # Traduce el menú a nombres de módulos estables.
@@ -117,10 +117,10 @@ if (@($Components).Count -eq 0) { throw 'Choose at least one component.' }
 # Valida también entradas del menú personalizado, que no pasan por el binder de parámetros.
 foreach ($ComponentName in $Components) {
     # Exige nombres explícitos de la allowlist.
-    if ($ComponentName -notin @('Security', 'Efficiency', 'Release', 'All')) { throw "Invalid component: $ComponentName" }
+    if ($ComponentName -notin @('Security', 'Efficiency', 'Release', 'ModelAdvisor', 'All')) { throw "Invalid component: $ComponentName" }
 }
 # Expande All a los tres componentes reales.
-if ($Components -contains 'All') { $Components = @('Security', 'Efficiency', 'Release') }
+if ($Components -contains 'All') { $Components = @('Security', 'Efficiency', 'Release', 'ModelAdvisor') }
 # Evita procesar un módulo dos veces.
 $Components = @($Components | Select-Object -Unique)
 # Resuelve controles sin depender de la selección de plataforma.
@@ -129,6 +129,8 @@ $HasSecurity = $Components -contains 'Security'
 $HasEfficiency = $Components -contains 'Efficiency'
 # Resuelve el módulo de prepublicación.
 $HasRelease = $Components -contains 'Release'
+# Identifica el módulo opcional de selección de modelos.
+$HasAdvisor = $Components -contains 'ModelAdvisor'
 # Impide instalar integraciones de seguridad si no se seleccionó su módulo.
 if ((-not $HasSecurity) -and ($InstallExternalSkills -or $UpdateGlobalAgents -or $InstallCompletionHook)) {
     # Evita una configuración engañosa o incompleta.
@@ -142,6 +144,7 @@ if ($HasSecurity) { $SelectedSkillNames += @('sabas-secure-qa', 'sabas-threat-mo
 if ($HasEfficiency) { $SelectedSkillNames += 'sabas-efficient-development' }
 # Añade la skill de revisión legal/técnica de prepublicación.
 if ($HasRelease) { $SelectedSkillNames += 'sabas-release-compliance' }
+if ($HasAdvisor) { $SelectedSkillNames += 'sabas-model-advisor' }
 
 # Crea la carpeta de backup solo cuando vaya a ser necesaria.
 New-Item -ItemType Directory -Force -Path $BackupRoot | Out-Null
@@ -459,6 +462,7 @@ if (($Target -eq 'Codex') -or ($Target -eq 'All')) {
     if ($HasEfficiency) { Install-SabasPortableSkill -SkillName 'sabas-efficient-development' -SkillsTarget $CodexSkillsTarget -PlatformName 'Codex' }
     # Añade prepublicación de manera independiente.
     if ($HasRelease) { Install-SabasPortableSkill -SkillName 'sabas-release-compliance' -SkillsTarget $CodexSkillsTarget -PlatformName 'Codex' }
+    if ($HasAdvisor) { Install-SabasPortableSkill -SkillName 'sabas-model-advisor' -SkillsTarget $CodexSkillsTarget -PlatformName 'Codex' }
     # Conserva las comprobaciones del hook solo cuando se instaló el grupo Seguridad.
     if ($HasSecurity) {
         # Repara la codificación del JSON de hooks de Codex.
@@ -471,13 +475,14 @@ if (($Target -eq 'Codex') -or ($Target -eq 'All')) {
 # Completa los módulos independientes en el home efectivo de Hermes.
 if (($Target -eq 'Hermes') -or ($Target -eq 'All')) {
     # Evita discovery y creación de carpetas si no hay módulos adicionales.
-    if ($HasEfficiency -or $HasRelease) {
+    if ($HasEfficiency -or $HasRelease -or $HasAdvisor) {
         # Localiza el árbol que realmente usa Hermes, dando prioridad a discovery confirmado.
         $HermesSkillsTarget = Resolve-SabasHermesSkillsTarget
         # Instala eficiencia cuando se solicitó.
         if ($HasEfficiency) { Install-SabasPortableSkill -SkillName 'sabas-efficient-development' -SkillsTarget $HermesSkillsTarget -PlatformName 'Hermes' }
         # Instala prepublicación cuando se solicitó.
         if ($HasRelease) { Install-SabasPortableSkill -SkillName 'sabas-release-compliance' -SkillsTarget $HermesSkillsTarget -PlatformName 'Hermes' }
+    if ($HasAdvisor) { Install-SabasPortableSkill -SkillName 'sabas-model-advisor' -SkillsTarget $HermesSkillsTarget -PlatformName 'Hermes' }
     }
 }
 

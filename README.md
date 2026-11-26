@@ -303,3 +303,6 @@ Un `PASS` no garantiza ausencia absoluta de vulnerabilidades. Significa que los 
 Los hooks son código local con permisos del usuario. Revisa siempre cualquier hook nuevo/modificado antes de confiarlo. El hook Sabas incluido en este repositorio no sustituye al sandbox del sistema operativo.
 
 Las pruebas dinámicas o destructivas solo deben ejecutarse contra local/sandbox/staging autorizado y sin datos reales que puedan dañarse.
+
+## Model Advisor (experimental)
+See [module documentation](skills/sabas-model-advisor/README.md). Select `-Components ModelAdvisor` in the portable installer.
