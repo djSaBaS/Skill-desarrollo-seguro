@@ -1,5 +1,9 @@
 # Changelog
 
+## Unreleased — Model Advisor
+
+- Experimental offline advisory engine, provider references, policies and portable installation option. Pending full runtime verification.
+
 ## Unreleased — Five production security control families
 
 - Reforzados los cinco controles SEC-ENV, SEC-PROD, SEC-RATE, SEC-ROW y SEC-SESS

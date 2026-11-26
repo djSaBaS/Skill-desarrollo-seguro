@@ -1,0 +1,9 @@
+{
+  "assistant": "gemini-cli",
+  "source": "https://geminicli.com/docs/cli/model/",
+  "reviewed": "2026-11-26",
+  "status": "documentation-reviewed",
+  "models": [],
+  "notes": "/model and native auto routing; confirm installed version.",
+  "ranking": "local evaluation only; no universal model ranking"
+}

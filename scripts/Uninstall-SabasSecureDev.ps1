@@ -4,7 +4,7 @@ param(
     [ValidateSet('Codex', 'Hermes', 'Antigravity', 'Both', 'All')]
     [string]$Target,
     # Permite retirar uno o varios grupos sin desinstalar las skills restantes.
-    [ValidateSet('Security', 'Efficiency', 'Release', 'All')]
+    [ValidateSet('Security', 'Efficiency', 'Release', 'ModelAdvisor', 'All')]
     [string[]]$Components = @('All'),
     # Permite retirar el bloque administrado de AGENTS.md/AGENTS.override.md de Codex.
     [switch]$RemoveGlobalAgentsBlock,
@@ -35,7 +35,7 @@ $BackupRoot = Join-Path $HOME ".sabas-secure-development\backups\uninstall-$Time
 # Crea el backup antes de borrar componentes.
 New-Item -ItemType Directory -Force -Path $BackupRoot | Out-Null
 # Expande All para retirar todos los componentes propios, incluido Lanzamiento.
-if ($Components -contains 'All') { $Components = @('Security', 'Efficiency', 'Release') }
+if ($Components -contains 'All') { $Components = @('Security', 'Efficiency', 'Release', 'ModelAdvisor') }
 # Calcula los grupos efectivos sin duplicados.
 $Components = @($Components | Select-Object -Unique)
 # Identifica si se retiran integraciones de seguridad.
@@ -48,6 +48,7 @@ if ($RemovingSecurity) { $SkillNames += @('sabas-secure-qa', 'sabas-threat-model
 if ($Components -contains 'Efficiency') { $SkillNames += 'sabas-efficient-development' }
 # Añade la skill de prepublicación si está incluida.
 if ($Components -contains 'Release') { $SkillNames += 'sabas-release-compliance' }
+if ($Components -contains 'ModelAdvisor') { $SkillNames += 'sabas-model-advisor' }
 # Evita retirar configuraciones de seguridad al desinstalar otros módulos.
 if ((-not $RemovingSecurity) -and ($RemoveGlobalAgentsBlock -or $RemoveCompletionHook -or $RemoveBundledUsuarioTorpe)) {
     # Rechaza una solicitud incompatible en lugar de ignorarla silenciosamente.

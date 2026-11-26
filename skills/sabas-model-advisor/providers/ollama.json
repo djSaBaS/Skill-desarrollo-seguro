@@ -1,0 +1,9 @@
+{
+  "assistant": "ollama",
+  "source": "https://docs.ollama.com/context-length",
+  "reviewed": "2026-11-26",
+  "status": "pending-source-review",
+  "models": [],
+  "notes": "Require measured RAM/VRAM, quantization, context, tool support and speed; use local inventory. No remote calls.",
+  "ranking": "local evaluation only; no universal model ranking"
+}

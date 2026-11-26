@@ -1,0 +1,28 @@
+{
+  "assistant": "claude-code",
+  "source": "https://code.claude.com/docs/en/settings",
+  "reviewed": "2026-11-26",
+  "status": "documentation-reviewed",
+  "models": [
+    {
+      "name": "haiku",
+      "availability": "confirm-in-environment",
+      "cost": null,
+      "effort": null
+    },
+    {
+      "name": "sonnet",
+      "availability": "confirm-in-environment",
+      "cost": null,
+      "effort": null
+    },
+    {
+      "name": "opus",
+      "availability": "confirm-in-environment",
+      "cost": null,
+      "effort": null
+    }
+  ],
+  "notes": "Use /model and /effort; aliases and capabilities depend on backend.",
+  "ranking": "local evaluation only; no universal model ranking"
+}

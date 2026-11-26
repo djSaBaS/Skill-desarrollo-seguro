@@ -1,0 +1,9 @@
+{
+  "assistant": "github-copilot",
+  "source": "https://docs.github.com/en/copilot/reference/ai-models/supported-models",
+  "reviewed": "2026-11-26",
+  "status": "documentation-reviewed",
+  "models": [],
+  "notes": "Use actual picker and plan; AI credits/token billing: https://docs.github.com/en/copilot/concepts/billing-and-usage/individuals/billing",
+  "ranking": "local evaluation only; no universal model ranking"
+}

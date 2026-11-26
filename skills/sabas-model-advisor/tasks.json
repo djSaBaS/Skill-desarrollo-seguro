@@ -1,0 +1,106 @@
+{
+  "levels": {
+    "1": "mechanical",
+    "2": "simple",
+    "3": "intermediate",
+    "4": "complex",
+    "5": "critical"
+  },
+  "categories": {
+    "development": [
+      "frontend",
+      "backend",
+      "full-stack",
+      "php",
+      "python",
+      "javascript",
+      "typescript",
+      "sql",
+      "mysql",
+      "wordpress",
+      "api",
+      "mobile",
+      "refactor",
+      "migration",
+      "legacy",
+      "bug",
+      "performance"
+    ],
+    "qa": [
+      "navigation",
+      "buttons",
+      "forms",
+      "functional",
+      "unit",
+      "integration",
+      "e2e",
+      "playwright",
+      "regression",
+      "multiplayer",
+      "permissions",
+      "console",
+      "data-validation",
+      "accessibility"
+    ],
+    "ux": [
+      "visual",
+      "responsive",
+      "accessibility",
+      "ux",
+      "interface",
+      "css",
+      "components"
+    ],
+    "security": [
+      "vulnerability",
+      "authentication",
+      "authorization",
+      "privacy",
+      "secrets",
+      "encryption",
+      "dependencies",
+      "configuration",
+      "permissions"
+    ],
+    "documentation": [
+      "readme",
+      "comments",
+      "technical-doc",
+      "manual",
+      "incident-report",
+      "changelog",
+      "commit",
+      "pull-request"
+    ],
+    "devops": [
+      "architecture",
+      "database",
+      "ci-cd",
+      "git",
+      "github",
+      "deployment",
+      "docker",
+      "infrastructure",
+      "complex-migration",
+      "critical-incident"
+    ],
+    "research": [
+      "search",
+      "comparison",
+      "documentation",
+      "images",
+      "documents",
+      "large-repository",
+      "complex-problem"
+    ]
+  },
+  "minimum": {
+    "security": 4,
+    "devops": 3,
+    "development": 2,
+    "qa": 1,
+    "ux": 2,
+    "documentation": 1,
+    "research": 2
+  }
+}

@@ -1,0 +1,5 @@
+{
+  "policy": "BALANCED",
+  "threshold": 2,
+  "max_catalog_age_days": 90
+}

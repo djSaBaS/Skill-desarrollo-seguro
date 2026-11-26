@@ -1,0 +1,16 @@
+{
+  "assistant": "chatgpt",
+  "source": "https://help.openai.com/en/articles/20001354-gpt-6-and-other-models-in-chatgpt",
+  "reviewed": "2026-11-26",
+  "status": "documentation-reviewed",
+  "models": [
+    {
+      "name": "GPT-6.2",
+      "availability": "confirm-in-environment",
+      "cost": null,
+      "effort": null
+    }
+  ],
+  "notes": "Instant, Medium, High, Extra High where available; plan-dependent.",
+  "ranking": "local evaluation only; no universal model ranking"
+}

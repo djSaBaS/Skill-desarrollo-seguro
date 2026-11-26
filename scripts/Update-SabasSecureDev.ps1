@@ -4,7 +4,7 @@ param(
     [ValidateSet('Codex', 'Hermes', 'Antigravity', 'All')]
     [string]$Target,
     # Permite actualizar únicamente Seguridad, Eficiencia o Lanzamiento.
-    [ValidateSet('Security', 'Efficiency', 'Release', 'All')]
+    [ValidateSet('Security', 'Efficiency', 'Release', 'ModelAdvisor', 'All')]
     [string[]]$Components,
     # Selecciona la rama o referencia pública que se descargará.
     [string]$Ref = 'main',
